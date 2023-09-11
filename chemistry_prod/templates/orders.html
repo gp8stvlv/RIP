@@ -1,0 +1,66 @@
+{% extends 'base.html' %} <!-- показывает откуда наследуемся -->
+
+{% block title %}Список заказов{% endblock %}
+<!-- Этот блок определяет секцию с именем 'title', которая будет использоваться в шаблоне 'base.html' -->
+
+{% block content %}
+
+
+<style>
+    /* Установите фиксированную высоту для всех карточек */
+    .card {
+        height: 400px;
+        /* Измените на нужную высоту */
+        position: relative;
+        /* Установите позицию как относительную для карточки */
+    }
+
+    /* Установите максимальную ширину для изображений внутри карточек */
+    .card img {
+        max-width: 60%;
+        height: auto;
+        display: block;
+        margin: auto;
+        /* Центрирование по горизонтали */
+    }
+
+    /* Стили для кнопок */
+    .card-button {
+        text-align: center;
+        /* Центрирование текста кнопок */
+        margin-bottom: 10px;
+    }
+
+    /* Стили для цены */
+    .price {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: #fff;
+        padding: 5px 10px;
+        border-radius: 5px;
+    }
+</style>
+<div class="album py-5 bg-body-tertiary">
+    <div class="container">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+            {% for model in init_data.modeling %}
+            <div class="col">
+                <div class="card shadow-sm">
+                    <div class="price">price: {{ model.price }}</div>
+                    <img src="{{ model.image_url }}" alt="{{ model.type }}" class="bd-placeholder-img card-img-top">
+                    <div class="card-body">
+                        <p class="card-text">{{ model.type }}</p>
+                    </div>
+                    <div class="card-button">
+                        <a href="{% url 'order_url' model.id %}" class="btn btn-primary">Подробнее</a>
+                        <a href="#" class="btn btn-success">Добавить в корзину</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

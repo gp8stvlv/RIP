@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Корзина</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <!-- Ваши стили CSS и скрипты JavaScript могут быть подключены здесь -->
+</head>
+
+<body>
+    <main>
+
+        <nav class="navbar bg-dark border-bottom border-body" data-bs-theme="dark">
+            <div class="container">
+                <a class="navbar-brand">
+                    <img src="/static/images/CH.png" alt=" Logo" width="40">
+                    Корзина
+                </a>
+                <form class="d-flex" role="search">
+                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+                    <button class="btn btn-outline-success" type="submit">Search</button>
+                </form>
+            </div>
+        </nav>
+
+        <a href="/">
+            <button type="button" class="btn btn-outline-primary" disabled style="color: black; border-color: black;">
+                Вернуться
+                в меню</button>
+        </a>
+
+
+        <section>
+            <h2>Ваш заказ</h2>
+            <ul>
+                <!-- Здесь будет список заказов покупателя -->
+                <li>Товар 1 - Цена: $10</li>
+                <li>Товар 2 - Цена: $15</li>
+
+            </ul>
+        </section>
+
+        <section>
+            <h2>Итого</h2>
+            <p>Общая стоимость: $25</p>
+        </section>
+</body>
+
+</html>
