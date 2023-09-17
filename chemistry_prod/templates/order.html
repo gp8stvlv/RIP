@@ -4,45 +4,27 @@
 
 {% block content %}
 
-<style>
-    /* Добавляем анимацию при наведении на изображение */
-    img:hover {
-        transform: scale(1.1);
-        /* Увеличение изображения на 10% */
-    }
-
-    /* Стили для кнопки Вернуться в меню */
-    .btn.btn-outline-primary {
-        color: #181717;
-        border-color: #181717;
-        transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out;
-    }
-
-    /* Стили для кнопки Вернуться в меню при наведении */
-    .btn.btn-outline-primary:hover {
-        background-color: rgb(34, 34, 34);
-        border-color: #181717;
-        color: #fff;
-    }
-</style>
-
 <a href="/">
     <button type="button" class="btn btn-outline-primary"> Вернуться
         в меню</button>
 </a>
+<div class="order_constraints">
 
-<div>
-    <strong>{{ modeling.type }}</strong>
+    <div>
+        <h1>{{ modeling.type }}</h1>
+    </div>
+
+
+    <div>
+        <img src="{% static modeling.image_url %}" alt="{{ modeling.type }}" class="order_img order_img_margin">
+    </div>
+
+    <div class="order_price">price: {{ modeling.price }}</div>
+    <div>
+        {{ modeling.description }}
+    </div>
+
+    <a href="#" class="btn btn-success">Добавить в корзину</a>
+
 </div>
-
-<div style=" margin-top: 15px; margin-bottom: 15px; margin-left: 30px;">
-    <img src="{% static modeling.image_url %}" alt="{{ modeling.type }}"
-        style="width: 300px; height: 300px; transition: transform 0.3s ease-in-out;">
-</div>
-
-{{ modeling.description }}
-
-<br>
-<a href="#" class="btn btn-success">Добавить в корзину</a>
-
 {% endblock %}

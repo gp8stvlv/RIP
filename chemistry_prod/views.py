@@ -47,17 +47,17 @@ data_modeling = {
             'description': 'Микроцентрифуга со скоростью вращения до 15000 об/мин, с возможностью работы со стандартными пробирками на 1,5/2 мл и ПЦР-стрипами.',
             'image_url': '../static/images/fluorimetr-fluo-800-siniy-i-krasnyy-kanaly.jpg',
             'price': '139$'
-        },
+        }
     ]
 }
 
-def GetTypesAnalysisPage(request):
+def GetOrders(request):
     return render(request, 'orders.html', {
         'init_data' : data_modeling
     })
 
 
-def GetModelingDetailedPage(request, id):
+def GetOrder(request, id):
     data_by_id = data_modeling.get('modeling')[id]
     return render(request, 'order.html', {
         'modeling': data_by_id
@@ -65,3 +65,7 @@ def GetModelingDetailedPage(request, id):
 
 def GetBasket(request): #корзина
     return render(request, 'basket.html')
+
+def SendText(request):
+    input_text = request.POST['text']
+    print(input_text)

@@ -1,0 +1,313 @@
+        /* Custom CSS for Navbar and Icons */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background-color: #343a40;
+            color: #ffffff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+        }
+
+        .navbar a {
+            text-decoration: none;
+            color: #ffffff;
+            font-size: 18px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar img {
+            width: 40px;
+            margin-right: 10px;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .navbar img:hover {
+            transform: scale(1.3);
+        }
+
+        .navbar-nav {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-item {
+            margin-left: 20px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            /* Center vertically */
+        }
+
+        .nav-link img {
+            width: 40px;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .nav-link img:hover {
+            transform: scale(1.2);
+        }
+
+        .order-text {
+            font-size: 40px;
+        }
+
+
+
+
+
+
+
+        /* Стили для карточек orders.html */
+        .margin_search_bar {
+            margin-left: 10px;
+            margin-top: 20px;
+        }
+
+        /* Styles for the custom search form container */
+        .custom-search-form {
+            display: flex;
+            justify-content: flex-end;
+            max-width: 400px;
+            margin-bottom: 20px;
+        }
+
+        /* Styles for the custom search input */
+        .custom-search-input {
+            width: 18%;
+            /* Take up the entire width of the container */
+            border: 1px solid #ccc;
+            /* Add a border */
+            border-radius: 5px;
+            /* Rounded corners */
+            padding: 10px;
+            /* Add some padding for spacing */
+        }
+
+        /* Styles for the custom search button */
+        .custom-search-button {
+            background-color: #28a745;
+            /* Background color for the button */
+            color: #fff;
+            /* Text color for the button */
+            border: none;
+            /* Remove the button border */
+            border-radius: 5px;
+            /* Rounded corners */
+            padding: 10px 20px;
+            /* Add padding for button size */
+            margin-left: 5px;
+            /* Add some spacing between the input and button */
+            cursor: pointer;
+            /* Add a pointer cursor on hover */
+        }
+
+        /* Styles for the custom search button on hover */
+        .custom-search-button:hover {
+            background-color: #218838;
+            /* Darker background color on hover */
+        }
+
+
+        /* cards */
+
+
+
+        /* Устанавливаем фиксированную высоту для карточек */
+        .card {
+            height: 300px;
+            width: 450px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .orders_card_img {
+            width: 300px;
+            height: 300px;
+        }
+
+        /* Устанавливаем ограничение на высоту для содержимого */
+        .card-body {
+            max-height: 100%;
+            /* Максимальная высота содержимого */
+            overflow: hidden;
+            /* Скрываем излишки содержимого, если оно не помещается */
+            padding: 10px;
+            /* Добавляем отступы, чтобы содержимое не было прижато к верху */
+        }
+
+        /* Установите максимальную ширину для изображений внутри карточек */
+        .card img {
+            max-width: 60%;
+            height: auto;
+            display: block;
+            margin: auto;
+        }
+
+        /* Стили для цены */
+
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+
+        /* Стили для кнопок */
+        .card-button {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+
+        .btn-primary,
+        .btn-success {
+            display: inline-block;
+            text-decoration: none;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        /* Стили для кнопки Добавить в корзину */
+        .btn.btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: #fff;
+            border-radius: 10px;
+            /* Add rounded corners */
+            padding: 10px 20px;
+            /* Add padding for button size */
+            margin-top: 15px;
+            /* Add margin to separate from the description */
+        }
+
+        .btn.btn-primary:hover {
+            background-color: #0069d8;
+            border-color: #0069d8;
+        }
+
+        .equal-height-cards {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .equal-height-cards .col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .equal-height-cards .card {
+            flex: 1;
+            margin: 10px;
+            /* Добавьте другие стили для карточек по вашему усмотрению */
+        }
+
+        /* Стили для поисковой формы */
+        .d-flex {
+            flex: 1;
+            /* Растянуть форму на всю доступную ширину */
+        }
+
+        .orders_price {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background-color: #d6d6d6;
+            margin-right: 340px;
+            margin-top: 3px;
+            margin-left: 3px;
+        }
+
+
+
+
+
+
+        /* order.html */
+        /* Добавляем анимацию при наведении на изображение */
+
+        .order_constraints {
+            margin-left: 30px;
+        }
+
+        .order_img:hover {
+            transform: scale(1.1);
+            /* Увеличение изображения на 10% */
+        }
+
+        .order_img_margin {
+            width: 300px;
+            height: 300px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            margin-left: 30px;
+            transition: transform 0.3s ease-in-out;
+            border-radius: 10px;
+            /* Add rounded corners */
+        }
+
+        /* Стили для кнопки Вернуться в меню */
+        .btn.btn-outline-primary {
+            color: #181717;
+            border-color: #181717;
+            transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out;
+            border-radius: 10px;
+            /* Add rounded corners */
+            padding: 10px 20px;
+            /* Add padding for button size */
+            margin-top: 15px;
+            /* Add margin to separate from the image */
+        }
+
+        /* Стили для кнопки Вернуться в меню при наведении */
+        .btn.btn-outline-primary:hover {
+            background-color: rgb(34, 34, 34);
+            border-color: #181717;
+            color: #fff;
+        }
+
+        /* Стили для кнопки Добавить в корзину */
+        .btn.btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: #fff;
+            border-radius: 10px;
+            /* Add rounded corners */
+            padding: 10px 20px;
+            /* Add padding for button size */
+            margin-top: 15px;
+            /* Add margin to separate from the description */
+        }
+
+        /* Стили для кнопки Добавить в корзину при наведении */
+        .btn.btn-success:hover {
+            background-color: #218838;
+            border-color: #218838;
+        }
+
+        .order_price {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background-color: #d6d6d6;
+        }
