@@ -5,12 +5,13 @@
 {% block content %}
 
 <div class="margin_search_bar">
-    <form action="order/0/" method="post" enctype="multipart/form-data">
-        {% csrf_token %} <!-- токен безопасного поиска -->
+    <form action="{% url 'order_url' %}" method="get">
+        {% csrf_token %}
         <input class="custom-search-input" placeholder="Search" name="text" type="text">
         <input class="custom-search-button" type="submit" value="Submit">
     </form>
 </div>
+
 
 <div class="album py-5 bg-body-tertiary">
     <div class="container">

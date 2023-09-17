@@ -66,6 +66,25 @@ def GetOrder(request, id):
 def GetBasket(request): #корзина
     return render(request, 'basket.html')
 
+def GetOrder(request, id):
+    data_by_id = data_modeling.get('modeling')[id]
+    return render(request, 'order.html', {
+        'modeling': data_by_id
+    })
+
+def GetBasket(request):
+    return render(request, 'basket.html')
+
 def SendText(request):
-    input_text = request.POST['text']
-    print(input_text)
+    input_text = request.GET.get('text', '')
+
+    # Используйте генератор списка для поиска соответствующих моделей
+    matching_models = [model for model in data_modeling['modeling'] if input_text.lower() in model['type'].lower()]
+
+    # Отобразите все модели, если нет совпадений
+    if not matching_models:
+        matching_models = data_modeling['modeling']
+
+    return render(request, 'orders.html', {
+        'init_data': {'modeling': matching_models}
+    })
