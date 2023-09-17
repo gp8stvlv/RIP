@@ -66,15 +66,6 @@ def GetOrder(request, id):
 def GetBasket(request): #корзина
     return render(request, 'basket.html')
 
-def GetOrder(request, id):
-    data_by_id = data_modeling.get('modeling')[id]
-    return render(request, 'order.html', {
-        'modeling': data_by_id
-    })
-
-def GetBasket(request):
-    return render(request, 'basket.html')
-
 def SendText(request):
     input_text = request.GET.get('text', '')
 
