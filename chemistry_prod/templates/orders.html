@@ -7,11 +7,10 @@
 <div class="margin_search_bar">
     <form action="{% url 'order_url' %}" method="get">
         {% csrf_token %}
-        <input class="custom-search-input" placeholder="Search" name="text" type="text">
+        <input class="custom-search-input" placeholder="Search" name="text" type="text" value="{{search_value}}">
         <input class="custom-search-button" type="submit" value="Submit">
     </form>
 </div>
-
 
 <div class="album py-5 bg-body-tertiary">
     <div class="container">
@@ -26,7 +25,7 @@
                         <div class="card-button">
                             <a href="{% url 'order_url' model.id %}" class="btn btn-primary">Подробнее</a>
                             <!-- url 'order_url' model.id - ссылка на отдельную страницу -->
-                            <a href="#" class="btn btn-success">Добавить в корзину</a>
+                            <!-- <a href="#" class="btn btn-success">Добавить в корзину</a> -->
                         </div>
                     </div>
                 </div>
