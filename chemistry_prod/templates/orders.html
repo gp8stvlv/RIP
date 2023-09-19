@@ -7,8 +7,8 @@
 <div class="margin_search_bar">
     <form action="{% url 'order_url' %}" method="get">
         {% csrf_token %}
-        <input class="custom-search-input" placeholder="Search" name="text" type="text" value="{{search_value}}">
-        <input class="custom-search-button" type="submit" value="Submit">
+        <input class="custom-search-input" placeholder="Поиск" name="value" type="text" value="{{search_value}}">
+        <input class="custom-search-button" type="submit" value="Найти">
     </form>
 </div>
 
@@ -18,7 +18,7 @@
             {% for model in init_data.modeling %}
             <div class="col">
                 <div class="card shadow-sm">
-                    <div class="orders_price">price: {{ model.price }}</div>
+                    <div class="orders_price">цена: {{ model.price }}</div>
                     <img src="{{ model.image_url }}" alt="{{ model.type }}" class="orders_card_img">
                     <div class="card-body">
                         <h5 class="card-title">{{ model.type }}</h5>
