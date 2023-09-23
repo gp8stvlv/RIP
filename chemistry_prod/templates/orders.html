@@ -6,31 +6,58 @@
 
 <div class="margin_search_bar">
     <form action="{% url 'order_url' %}" method="get">
-        {% csrf_token %}
-        <input class="custom-search-input" placeholder="Search" name="text" type="text">
-        <input class="custom-search-button" type="submit" value="Submit">
+        <!-- {% csrf_token %} -->
+        <input class="custom-search-input" placeholder="Поиск" name="value" type="text" value="{{search_value}}">
+        <input class="custom-search-button" type="submit" value="Найти">
     </form>
 </div>
+<style>
+    .close-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        /* Перемещаем кнопку крестика в правый верхний угол */
+        background-color: transparent;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        text-decoration: none;
+        /* Убираем подчеркивание */
+    }
 
+    .card {
+        position: relative;
+    }
+
+    .close-button:hover {
+        color: red;
+        /* Цвет кнопки при наведении */
+    }
+</style>
 
 <div class="album py-5 bg-body-tertiary">
     <div class="container">
         <div class="row row-cols-1 row-cols-md-3 equal-height-cards">
             {% for model in init_data.modeling %}
+            {% if model.status == 'действует' %}
             <div class="col">
                 <div class="card shadow-sm">
-                    <div class="orders_price">price: {{ model.price }}</div>
+                    <div class="orders_price">цена: {{ model.price }}</div>
+                    <a class="close-button"
+                        href="{% url 'update_chemistry_equipment_status' model.chemistry_product_id %}">✖️</a>
                     <img src="{{ model.image_url }}" alt="{{ model.type }}" class="orders_card_img">
                     <div class="card-body">
                         <h5 class="card-title">{{ model.type }}</h5>
                         <div class="card-button">
-                            <a href="{% url 'order_url' model.id %}" class="btn btn-primary">Подробнее</a>
+                            <a href="{% url 'order_url' model.chemistry_product_id %}"
+                                class="btn btn-primary">Подробнее</a>
                             <!-- url 'order_url' model.id - ссылка на отдельную страницу -->
-                            <a href="#" class="btn btn-success">Добавить в корзину</a>
+                            <!-- <a href="#" class="btn btn-success">Добавить в корзину</a> -->
                         </div>
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>
