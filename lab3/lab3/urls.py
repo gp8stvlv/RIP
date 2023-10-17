@@ -1,0 +1,42 @@
+"""
+URL configuration for lab3 project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/4.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from app import views
+from django.urls import include, path
+from rest_framework import routers
+
+router = routers.DefaultRouter()
+
+urlpatterns = [
+    path('', include(router.urls)),
+    path(r'equipment/', views.chemistryEquipment_getAll, name='chemistryEquipment_getAll'),
+    path(r'equipment/post/', views.chemistryEquipment_post, name='chemistryEquipment_post'),
+    path(r'equipment/<int:pk>/', views.chemistryEquipment_getByID, name='chemistryEquipment_getByID'),
+    path(r'equipment/<int:pk>/put/', views.chemistryEquipment_put, name='chemistryEquipment_put'),
+    path(r'equipment/<int:pk>/delete/', views.chemistryEquipment_delete, name='chemistryEquipment_delete'),
+
+    path(r'request/', views.requests_getAll, name='requests_getAll'),
+    path(r'request/post/', views.requests_post, name='requests_post'),
+    path(r'request/<int:pk>/', views.requests_getByID, name='requests_getByID'),
+    path(r'request/<int:pk>/put/', views.requests_put, name='requests_put'),
+    path(r'request/<int:pk>/delete/', views.requests_delete, name='requests_delete'),
+
+    # path(r'm-m/<int:pk>/<int:pk>/post/', views.m-m_post, name='m-m_post'),
+
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('admin/', admin.site.urls),
+]
