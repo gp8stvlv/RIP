@@ -4,7 +4,7 @@ from rest_framework import status
 from django.db.models import Q
 from . import models
 from rest_framework.decorators import api_view
-from functools import wraps
+from rest_framework import filters
 from app.serializers import UsersSerializer, RequestsSerializer, ChemistryEquipmentSerializer, RequestServiceSerializer
 from app.models import Users, Requests, ChemistryEquipment, RequestService
 
@@ -71,15 +71,36 @@ def chemistryEquipment_delete(request, pk, format=None):
 """
 
 
+# возвращает текущую роль
+def get_role_by_Requests(request_instance):
+    user_id = request_instance.user_id
+    try:
+        user = Users.objects.get(user_id=user_id)
+        user_data = UsersSerializer(user).data
+        user_role = user_data['role']
+        return user_role
+    except Users.DoesNotExist:
+       pass
 
-# #  проверить!!!! 
-# нужна сортировка 
+#request/?created_at=2023-09-15 - фильтрует объекты запросов по точной дате создания
+#request/?status=в работе - фильтрует объекты запросов по статусу "в работе"
+#request/?status=в работе&created_at=2020-09-15
 @api_view(['GET'])
 def requests_getAll(request, format=None):
-    requests = Requests.objects.all()
-    user_role = request.user
-    print("user_role", user_role)
-    serializer = RequestsSerializer(requests, many=True)
+    created_at = request.GET.get('created_at', None)
+    status = request.GET.get('status', None)
+
+    queryset = Requests.objects.all()
+
+    if created_at:
+        # Фильтрация по полю "created_at"
+        queryset = queryset.filter(created_at=created_at)
+
+    if status:
+        # Фильтрация по полю "status"
+        queryset = queryset.filter(status=status)
+
+    serializer = RequestsSerializer(queryset, many=True)
     return Response(serializer.data)
 
 
@@ -93,7 +114,6 @@ def requests_post(request, format=None):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 @api_view(['GET'])
 def requests_getByID(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
@@ -101,24 +121,17 @@ def requests_getByID(request, pk, format=None):
         serializer = RequestsSerializer(request_instance)
         return Response(serializer.data)
     
-# возвращает текущую роль
-def get_role_by_Requests(request_instance): #пример вызова request_instance = get_object_or_404(Requests, pk=pk) get_role_by_Requests(request_instance)
-    user_id = request_instance.user_id
-    user = Users.objects.get(user_id = user_id)
-    user_data = UsersSerializer(user).data
-    user_role = user_data['role']
-    print(user_role)
-
 @api_view(['PUT'])
 def requests_put(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
     serializer = RequestsSerializer(request_instance, data=request.data)
     
     if serializer.is_valid():
+
         new_status = serializer.validated_data.get('status')
-        # Проверяем, имеет ли пользователь право на изменение статуса
         current_role = get_role_by_Requests(request_instance)
-        if current_role == 'user' and request_instance.status == 'введен' and new_status == 'удален':
+        print("старый статус:", request_instance.status, "новый статус:", new_status, "текущая роль", current_role)
+        if current_role == 'user' and request_instance.status == 'введен' and (new_status == 'удален' or new_status == 'введен'):
             serializer.save()
             return Response(serializer.data)
         elif current_role == 'moderator' and request_instance.status != 'удален' and new_status != 'удален':
@@ -126,20 +139,8 @@ def requests_put(request, pk, format=None):
             return Response(serializer.data)
         else:
             return Response({"message": "Недостаточно прав для изменения статуса заявки."}, status=status.HTTP_403_FORBIDDEN)
-    
+        
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# @api_view(['Put'])
-# def requests_put(request, pk, format=None):
-#     request_instance = get_object_or_404(Requests, pk=pk)
-#     serializer = RequestsSerializer(request_instance, data=request.data)
-#     if serializer.is_valid():
-#         status_value = serializer.validated_data.get('user_id')
-#         print(status_value)
-#         serializer.save()
-#         return Response(serializer.data)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 # логическое удаление
 @api_view(['Delete'])
