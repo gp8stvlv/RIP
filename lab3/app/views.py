@@ -9,6 +9,8 @@ from django.db.models import Prefetch
 from app.serializers import UsersSerializer, RequestsSerializer, ChemistryEquipmentSerializer, RequestServiceSerializer
 from app.models import Users, Requests, ChemistryEquipment, RequestService
 from minio import Minio
+from django.utils import timezone
+from django.db import IntegrityError
 
 MODERATOR_USER_ID = 1  # Идентификатор модератора (замените на фактический идентификатор)
 # химическое оборудование 
@@ -41,6 +43,7 @@ def chemistryEquipment_getAll(request, format=None):
     print("matching_model_ids", matching_model_ids)
     serializer = ChemistryEquipmentSerializer(matching_models, many=True)
     return Response(serializer.data)
+
 # гет по определенному item /4
 @api_view(['Get'])
 def chemistryEquipment_getByID(request, pk, format=None):
@@ -51,22 +54,105 @@ def chemistryEquipment_getByID(request, pk, format=None):
 
 #добавляем в заявку, если ее нет, то создаем новую, status = введен, если есть, то добавляем в существующую заявку
 
+# @api_view(['POST'])
+# def chemistryEquipment_post(pk, quantity, format=None):  
+#     draft_application = models.Requests.objects.filter(status='введен').first()
+#     if draft_application:
+#         print("draft_application", draft_application)
+#         if pk:
+#             try:
+#                 chemistry_product = models.ChemistryEquipment.objects.get(chemistry_product_id=pk)
+#             except models.ChemistryEquipment.DoesNotExist:
+#                 return Response({'error': 'chemistry_product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+#             RequestService.objects.create(chemistry_product=chemistry_product, application=draft_application, quantity=quantity)
+
+#         return Response({'message': 'chemistry_product added to the existing draft application'}, status=status.HTTP_200_OK)
+#     else:
+#         return
+    
+
+# @api_view(['POST'])
+# def chemistryEquipment_post(request, user_id, format=None):
+#     requests_entered = Requests.objects.filter(status='введен', user=user_id)   # Извлечение объектов Requests со статусом 'введен'
+#     serializer_Requests = RequestsSerializer(requests_entered, many=True)
+
+#     request_ids = [request['request_id'] for request in serializer_Requests.data] # Получение списка request_id со статусом введен
+#     if request_ids == []:
+#         print('empty')
+#     else:
+#         request_id = request_ids[0] # Извлечение первой подходящей заявки (вообще не нужно тк у всех только 1 черновик)
+#         serializer = ChemistryEquipmentSerializer(data=request.data)
+#         print("request_ids", request_id)
+    
+#     # if serializer.is_valid():
+#     #     serializer.save()
+#     #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["Post"])
+def add_chemistryEquipment_post(application, format=None):
+    serializer = ChemistryEquipmentSerializer(data=application.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['POST'])
-def chemistryEquipment_post(application, pk, quantity, format=None):  
-    draft_application = models.Requests.objects.filter(status='введен').first()
-    if draft_application:
-        print("draft_application", draft_application)
-        if pk:
-            try:
-                chemistry_product = models.ChemistryEquipment.objects.get(chemistry_product_id=pk)
-            except models.ChemistryEquipment.DoesNotExist:
-                return Response({'error': 'chemistry_product not found'}, status=status.HTTP_404_NOT_FOUND)
+def chemistryEquipment_post(request, user_id, production_count, chemistry_product_id, format=None):
+    # Проверка существования пользователя и его роли
+    try:
+        Users.objects.get(user_id=user_id)
+    except Users.DoesNotExist:
+        return Response({'error': 'Invalid user ID'}, status=status.HTTP_400_BAD_REQUEST)
 
-            RequestService.objects.create(chemistry_product=chemistry_product, application=draft_application, quantity=quantity)
+    # Извлечение объектов Requests со статусом 'введен'
+    requests_entered = Requests.objects.filter(status='введен', user=user_id)
+    serializer_Requests = RequestsSerializer(requests_entered, many=True)
 
-        return Response({'message': 'chemistry_product added to the existing draft application'}, status=status.HTTP_200_OK)
+    # Получение списка request_id со статусом введен
+    request_ids = [request['request_id'] for request in serializer_Requests.data]
+
+    if not request_ids:
+        # Если request_ids пуст, новая пустая заявка
+        new_request = Requests()
+        new_request.user_id = user_id
+        new_request.status = 'введен'
+        new_request.created_at = timezone.now()
+        new_request.save()
+        request_id = new_request.request_id
+        print('Created new request with request_id ID:', request_id)
+
+        # Возможно, нужно также уведомить пользователя или выполнить другие действия
+
     else:
-        return
+        # Продолжите обработку существующей заявки, взяв первый элемент из списка request_ids
+        request_id = request_ids[0]
+        print('Using existing request with ID:', request_id)
+
+    # Извлеките production_count из URL или установите значение по умолчанию
+    try:
+        production_count = int(production_count)
+    except ValueError:
+        production_count = 1
+
+    # Получите объект ChemistryEquipment по ID
+    chemistry_equipment = get_object_or_404(ChemistryEquipment, pk=chemistry_product_id)
+
+    try:
+        # Создайте запись в таблице RequestService, связанную с созданной выше заявкой и новым оборудованием
+        request_service = RequestService.objects.create(request_id=request_id, chemistry_product=chemistry_equipment, production_count=production_count)
+
+        # Возвращаем успешный ответ
+        return Response({'success': 'заявка успешно создана'}, status=status.HTTP_201_CREATED)
+    except IntegrityError as e:
+        # Выводим информацию об ошибке в консоль
+        print(f'IntegrityError: {e}')
+        return Response({'error': 'дубликат ключей (с такими id уже заполнена таблица RequestService, количество менять в put)'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 #изменение оборудования не работает изменение картинки!!!
 @api_view(['Put'])
@@ -157,7 +243,7 @@ def requests_getAll(request, format=None):
     # Combine the serialized data into a single response
     response_data = {
         'requests': requests_serializer.data,
-        'chemistry_equipment': equipment_serializer.data
+        # 'chemistry_equipment': equipment_serializer.data
     }
 
     return Response(response_data)
@@ -181,7 +267,7 @@ def requests_post(request, format=None):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+# у каждой зявки есть id и нужно вывести все товары, которые прикреплены к данной заявке
 @api_view(['GET'])
 def requests_getByID(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
@@ -219,17 +305,17 @@ def requests_getByID(request, pk, format=None):
             'user': user_serializer.data if user else None,
             'moderator': moderator_serializer.data if moderator else None
         },
-        # 'chemistry_equipment': [
-        #     {
-        #         'equipment': equipment,
-        #         'production_count': equipment_count_dict[equipment['chemistry_product_id']]
-        #     } for equipment in equipment_serializer.data
-        # ] if matching_equipment_requests else None
+        'chemistry_equipment': [
+            {
+                'equipment': equipment,
+                'production_count': equipment_count_dict[equipment['chemistry_product_id']]
+            } for equipment in equipment_serializer.data
+        ] if matching_equipment_requests else None
     }
 
     return Response(response_data)
 
-
+#юзер меняет количество товара убрать логическое удаление
 @api_view(['PUT'])
 def requests_put(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
@@ -273,12 +359,72 @@ def get_all_request_services(request, format=None):
     serializer = RequestServiceSerializer(request_services, many=True)
     return Response(serializer.data)
 
+# @api_view(["PUT"])
+# def mm_put(request, chemistry_product_id, request_id, format=None):
+#     # Get the Requests object
+#     requests = get_object_or_404(Requests, request_id=request_id)
+#     print("requests", requests)
+
+#     # Get the RequestService object based on the Requests and chemistry_product_id
+#     requestService = get_object_or_404(RequestService, requests=requests, chemistry_product_id=chemistry_product_id)
+#     print("requestService", requestService)
+
+#     # Get the new quantity from the request data
+#     new_quantity = request.data.get('production_count')
+#     if new_quantity is not None:
+#         requestService.quantity = new_quantity
+#         requestService.save()
+
+#         # Serialize and return the updated instance
+#         serializer = RequestServiceSerializer(requestService)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+#     else:
+#         return Response({'error': 'Quantity is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    
 @api_view(['PUT'])
-def mm_put(request, pk, format=None):
-    request_instance = get_object_or_404(Requests, pk=pk)
-    serializer = RequestServiceSerializer(request_instance, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+def mm_put(request, request_id, chemistry_product_id):
+    try:
+        request_service = RequestService.objects.get(
+            request_id=request_id,
+            chemistry_product_id=chemistry_product_id
+        )
+        print("request_service", request_service)
+    except RequestService.DoesNotExist:
+        return Response({"error": "RequestService entry not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PUT':
+        serializer = RequestServiceSerializer(request_service, data=request.data)
+        print("serializer", serializer)
+        if serializer.is_valid():
+            # Explicitly set the instance instead of using serializer.save()
+            serializer.instance = request_service
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+# @api_view(['PUT'])
+# def mm_put(request, request_id, chemistry_product_id, format=None):
+#     try:
+#         request_service_instance = RequestService.objects.get(request=request_id, chemistry_product=chemistry_product_id)
+#         print("try")
+
+#         # Обновите поле production_count с использованием нового значения из запроса
+#         new_count = request.data.get('production_count')
+#         if new_count is not None:
+#             request_service_instance.production_count = new_count
+#             request_service_instance.save()
+#             # Сериализуйте и верните обновленный экземпляр
+#             serializer = RequestServiceSerializer(request_service_instance)
+#             return Response(serializer.data)
+#         else:
+#             return Response({'error': 'New production count is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+#     except RequestService.DoesNotExist:
+#         print("except")
+#         return Response({'error': 'Record does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
 

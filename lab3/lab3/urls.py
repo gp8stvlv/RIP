@@ -24,7 +24,8 @@ router = routers.DefaultRouter()
 urlpatterns = [
     path('', include(router.urls)),
     path(r'equipment/', views.chemistryEquipment_getAll, name='chemistryEquipment_getAll'), #гет с фильтром всех записей
-    path(r'equipment/post/', views.chemistryEquipment_post, name='chemistryEquipment_post'),  # как должно добавляться фото? 
+    path(r'equipment/post/', views.add_chemistryEquipment_post, name='add_chemistryEquipment_post'),  # как должно добавляться фото? 
+    path(r'equipment/user_id/<int:user_id>/count/<int:production_count>/chemistry_product_id/<int:chemistry_product_id>/post/', views.chemistryEquipment_post, name='chemistryEquipment_post'),
     path(r'equipment/<int:pk>/', views.chemistryEquipment_getByID, name='chemistryEquipment_getByID'), #гет /id
     path(r'equipment/<int:pk>/put/', views.chemistryEquipment_put, name='chemistryEquipment_put'),
     path(r'equipment/<int:pk>/delete/', views.chemistryEquipment_delete, name='chemistryEquipment_delete'),
@@ -35,9 +36,13 @@ urlpatterns = [
     path(r'request/<int:pk>/put/', views.requests_put, name='requests_put'),
     path(r'request/<int:pk>/delete/', views.requests_delete, name='requests_delete'),
 
-    path(r'm-m/<int:pk>/put/', views.mm_put, name='m-m_put'),
+    # path(r'mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/count/<int:production_count>/put/', views.mm_put, name='m-m_put'),
+    path('mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/put/', views.mm_put, name='mm_put'),
+  
+
+    
 # данный метод не нужен!
-  path(r'm-m/', views.get_all_request_services, name='m-m_put'),
+    path(r'mm/', views.get_all_request_services, name='m-m_put'),
 
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('admin/', admin.site.urls),
