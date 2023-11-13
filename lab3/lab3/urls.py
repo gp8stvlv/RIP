@@ -34,11 +34,12 @@ urlpatterns = [
     path(r'request/post/', views.requests_post, name='requests_post'),
     path(r'request/<int:pk>/', views.requests_getByID, name='requests_getByID'),
     path(r'request/<int:pk>/put/', views.requests_put, name='requests_put'),
-    path(r'request/<int:pk>/delete/', views.requests_delete, name='requests_delete'),
+    path(r'request/userDelete/<int:pk>/', views.user_requests_delete, name='user_requests_delete'),
+    path(r'request/moderatorDelete/<int:pk>/', views.moderator_requests_delete, name='moderator_requests_delete'),
 
     # path(r'mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/count/<int:production_count>/put/', views.mm_put, name='m-m_put'),
-    path('mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/put/', views.mm_put, name='mm_put'),
-  
+    path(r'manyToMany/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/put/', views.mm_put, name='mm_put'),
+    path(r'manyToMany/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/delete/', views.mm_delete, name='mm_delete'),
 
     
 # данный метод не нужен!

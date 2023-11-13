@@ -248,11 +248,6 @@ def requests_getAll(request, format=None):
 
     return Response(response_data)
 
-
-
-
-
-
 # Не делать POST заявки?? при создании заявки проверяем, что статус - введен
 @api_view(['POST'])
 def requests_post(request, format=None):
@@ -315,21 +310,38 @@ def requests_getByID(request, pk, format=None):
 
     return Response(response_data)
 
-#юзер меняет количество товара убрать логическое удаление
+#модератор меняет даты
 @api_view(['PUT'])
 def requests_put(request, pk, format=None):
+    try:
+        request_instance = Requests.objects.get(request_id=pk)
+    except Requests.DoesNotExist:
+        return Response({'error': 'Request not found'}, status=404)
+
+    # Определите, какие поля вы хотите обновить
+    fields_to_update = ['formation_date', 'completion_date']
+
+    # Создайте экземпляр сериализатора с partial=True
+    serializer = RequestsSerializer(request_instance, data=request.data, partial=True)
+
+    # Отфильтруйте поля, которые вы хотите обновить
+    filtered_data = {key: request.data[key] for key in fields_to_update if key in request.data}
+
+    if serializer.is_valid():
+        serializer.update(request_instance, filtered_data)  # Use update instead of save
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=400)
+
+# логическое удаление. удалить введенную заявку юзер: (был статус введен -> сделать удален) админ: если введен менять на другие статусы
+
+@api_view(['DELETE'])
+def user_requests_delete(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
     serializer = RequestsSerializer(request_instance, data=request.data)
-    
     if serializer.is_valid():
-
         new_status = serializer.validated_data.get('status')
-        current_role = get_role_by_Requests(request_instance)
-        print("старый статус:", request_instance.status, "новый статус:", new_status, "текущая роль", current_role)
-        if current_role == 'user' and request_instance.status == 'введен' and (new_status == 'удален' or new_status == 'введен'):
-            serializer.save()
-            return Response(serializer.data)
-        elif current_role == 'moderator' and request_instance.status != 'удален' and new_status != 'удален':
+        if  request_instance.status == 'введен' and (new_status == 'удален' or new_status == 'введен'):
             serializer.save()
             return Response(serializer.data)
         else:
@@ -337,94 +349,61 @@ def requests_put(request, pk, format=None):
         
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# логическое удаление. удалить введенную заявку  (был статус введен -> сделать удален)
 
 @api_view(['DELETE'])
-def requests_delete(request, pk, format=None):
-    request_obj = get_object_or_404(Requests, pk=pk)
+def moderator_requests_delete(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
-    current_role = get_role_by_Requests(request_instance)
-    if request_obj.status == 'введен':
-        request_obj.status = 'удален'
-        request_obj.save()
-        return Response({'message': 'заявка успешно удаленена (введен -> удален)'}, status=status.HTTP_204_NO_CONTENT)
-    else:
-        return Response({'message': 'заявку не удалось удалить'}, status=status.HTTP_400_BAD_REQUEST)
+    serializer = RequestsSerializer(request_instance, data=request.data)
+    if serializer.is_valid():
+        new_status = serializer.validated_data.get('status')
+        if  request_instance.status == 'введен' and (new_status == 'в работе' or new_status == 'введен' or new_status == 'завершен' or new_status == 'отменен'):
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response({"message": "Недостаточно прав для изменения статуса заявки."}, status=status.HTTP_403_FORBIDDEN)
+        
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 #м-м
-
 @api_view(['GET'])
 def get_all_request_services(request, format=None):
     request_services = RequestService.objects.all()
     serializer = RequestServiceSerializer(request_services, many=True)
     return Response(serializer.data)
 
-# @api_view(["PUT"])
-# def mm_put(request, chemistry_product_id, request_id, format=None):
-#     # Get the Requests object
-#     requests = get_object_or_404(Requests, request_id=request_id)
-#     print("requests", requests)
-
-#     # Get the RequestService object based on the Requests and chemistry_product_id
-#     requestService = get_object_or_404(RequestService, requests=requests, chemistry_product_id=chemistry_product_id)
-#     print("requestService", requestService)
-
-#     # Get the new quantity from the request data
-#     new_quantity = request.data.get('production_count')
-#     if new_quantity is not None:
-#         requestService.quantity = new_quantity
-#         requestService.save()
-
-#         # Serialize and return the updated instance
-#         serializer = RequestServiceSerializer(requestService)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-#     else:
-#         return Response({'error': 'Quantity is required'}, status=status.HTTP_400_BAD_REQUEST)
-
     
 @api_view(['PUT'])
 def mm_put(request, request_id, chemistry_product_id):
     try:
+        # Attempt to get the existing record
         request_service = RequestService.objects.get(
             request_id=request_id,
             chemistry_product_id=chemistry_product_id
         )
-        print("request_service", request_service)
     except RequestService.DoesNotExist:
         return Response({"error": "RequestService entry not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'PUT':
         serializer = RequestServiceSerializer(request_service, data=request.data)
-        print("serializer", serializer)
         if serializer.is_valid():
-            # Explicitly set the instance instead of using serializer.save()
-            serializer.instance = request_service
-            serializer.save()
+            # Delete the existing record
+            request_service.delete()
+
+            # Create a new record with the updated quantity
+            serializer.save(request_id=request_id, chemistry_product_id=chemistry_product_id)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['DELETE'])
+def mm_delete(request, request_id, chemistry_product_id):
+    # Поиск объектов, у которых request_id и chemistry_product_id совпадают
+    matching_objects = RequestService.objects.filter(request_id=request_id, chemistry_product_id=chemistry_product_id)
 
-
-
-
-# @api_view(['PUT'])
-# def mm_put(request, request_id, chemistry_product_id, format=None):
-#     try:
-#         request_service_instance = RequestService.objects.get(request=request_id, chemistry_product=chemistry_product_id)
-#         print("try")
-
-#         # Обновите поле production_count с использованием нового значения из запроса
-#         new_count = request.data.get('production_count')
-#         if new_count is not None:
-#             request_service_instance.production_count = new_count
-#             request_service_instance.save()
-#             # Сериализуйте и верните обновленный экземпляр
-#             serializer = RequestServiceSerializer(request_service_instance)
-#             return Response(serializer.data)
-#         else:
-#             return Response({'error': 'New production count is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-#     except RequestService.DoesNotExist:
-#         print("except")
-#         return Response({'error': 'Record does not exist.'}, status=status.HTTP_404_NOT_FOUND)
-
-
+    # Проверка наличия совпадающих объектов
+    if matching_objects.exists():
+        # Удаление найденных объектов
+        matching_objects.delete()
+        return Response({'message': 'запись успещно удалена'})
+    else:
+        # Возвращение ошибки, если нет совпадающих объектов
+        return Response({'error': 'не удалось найти запись. проверьте id'}, status=404)
