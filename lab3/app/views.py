@@ -12,7 +12,10 @@ from minio import Minio
 from django.utils import timezone
 from django.db import IntegrityError
 
-MODERATOR_USER_ID = 1  # Идентификатор модератора (замените на фактический идентификатор)
+MODERATOR_ID = 4  # Идентификатор модератора (замените на фактический идентификатор)
+USER_ID = 1  # Идентификатор модератора (замените на фактический идентификатор)
+
+
 # химическое оборудование 
 # get услуги с фильтром
 client = Minio(endpoint="localhost:9000",   # адрес сервера
@@ -101,14 +104,63 @@ def add_chemistryEquipment_post(application, format=None):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-def chemistryEquipment_post(request, user_id, production_count, chemistry_product_id, format=None):
-    # Проверка существования пользователя и его роли
-    try:
-        Users.objects.get(user_id=user_id)
-    except Users.DoesNotExist:
-        return Response({'error': 'Invalid user ID'}, status=status.HTTP_400_BAD_REQUEST)
+# @api_view(['POST'])
+# def chemistryEquipment_post(request, user_id, production_count, chemistry_product_id, format=None):
+#     # Проверка существования пользователя и его роли
+#     try:
+#         Users.objects.get(user_id=user_id)
+#     except Users.DoesNotExist:
+#         return Response({'error': 'Invalid user ID'}, status=status.HTTP_400_BAD_REQUEST)
 
+#     # Извлечение объектов Requests со статусом 'введен'
+#     requests_entered = Requests.objects.filter(status='введен', user=user_id)
+#     serializer_Requests = RequestsSerializer(requests_entered, many=True)
+
+#     # Получение списка request_id со статусом введен
+#     request_ids = [request['request_id'] for request in serializer_Requests.data]
+
+#     if not request_ids:
+#         # Если request_ids пуст, новая пустая заявка
+#         new_request = Requests()
+#         new_request.user_id = user_id
+#         new_request.status = 'введен'
+#         new_request.created_at = timezone.now()
+#         new_request.save()
+#         request_id = new_request.request_id
+#         print('Created new request with request_id ID:', request_id)
+
+#         # Возможно, нужно также уведомить пользователя или выполнить другие действия
+
+#     else:
+#         # Продолжите обработку существующей заявки, взяв первый элемент из списка request_ids
+#         request_id = request_ids[0]
+#         print('Using existing request with ID:', request_id)
+
+#     # Извлеките production_count из URL или установите значение по умолчанию
+#     try:
+#         production_count = int(production_count)
+#     except ValueError:
+#         production_count = 1
+
+#     # Получите объект ChemistryEquipment по ID
+#     chemistry_equipment = get_object_or_404(ChemistryEquipment, pk=chemistry_product_id)
+
+#     try:
+#         # Создайте запись в таблице RequestService, связанную с созданной выше заявкой и новым оборудованием
+#         request_service = RequestService.objects.create(request_id=request_id, chemistry_product=chemistry_equipment, production_count=production_count)
+
+#         # Возвращаем успешный ответ
+#         return Response({'success': 'заявка успешно создана'}, status=status.HTTP_201_CREATED)
+#     except IntegrityError as e:
+#         # Выводим информацию об ошибке в консоль
+#         print(f'IntegrityError: {e}')
+#         return Response({'error': 'дубликат ключей (с такими id уже заполнена таблица RequestService, количество менять в put)'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def chemistryEquipment_post(request, chemistry_product_id, format=None):
+
+    user_id = USER_ID
     # Извлечение объектов Requests со статусом 'введен'
     requests_entered = Requests.objects.filter(status='введен', user=user_id)
     serializer_Requests = RequestsSerializer(requests_entered, many=True)
@@ -132,13 +184,7 @@ def chemistryEquipment_post(request, user_id, production_count, chemistry_produc
         # Продолжите обработку существующей заявки, взяв первый элемент из списка request_ids
         request_id = request_ids[0]
         print('Using existing request with ID:', request_id)
-
-    # Извлеките production_count из URL или установите значение по умолчанию
-    try:
-        production_count = int(production_count)
-    except ValueError:
-        production_count = 1
-
+    production_count = 1
     # Получите объект ChemistryEquipment по ID
     chemistry_equipment = get_object_or_404(ChemistryEquipment, pk=chemistry_product_id)
 
@@ -154,7 +200,8 @@ def chemistryEquipment_post(request, user_id, production_count, chemistry_produc
         return Response({'error': 'дубликат ключей (с такими id уже заполнена таблица RequestService, количество менять в put)'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-#изменение оборудования не работает изменение картинки!!!
+
+#изменение оборудования
 @api_view(['Put'])
 def chemistryEquipment_put(request, pk, format=None):
     equipment = get_object_or_404(ChemistryEquipment, pk=pk)
@@ -215,12 +262,14 @@ def get_role_by_Requests(request_instance):
 #     return Response(serializer.data)
 
 
-
-
+ # http://0.0.0.0:8000/request/?status=в работе&formation_date_from=2020-09-01&formation_date_to=2024-09-30
 @api_view(['GET'])
 def requests_getAll(request, format=None):
+    
     created_at = request.GET.get('created_at', None)
     status = request.GET.get('status', None)
+    formation_date_from = request.GET.get('formation_date_from', None)
+    formation_date_to = request.GET.get('formation_date_to', None)
 
     queryset = Requests.objects.all()
 
@@ -230,37 +279,53 @@ def requests_getAll(request, format=None):
     if status:
         queryset = queryset.filter(status=status)
 
-    matching_RequestService_requests = models.RequestService.objects.filter(request_id__in=queryset.values_list('request_id', flat=True))
-    chemistry_product_ids = matching_RequestService_requests.values_list('chemistry_product_id', flat=True)
-    print(chemistry_product_ids)
+    if formation_date_from and formation_date_to:
+        queryset = queryset.filter(formation_date__range=[formation_date_from, formation_date_to])
 
-    matching_equipment_requests = models.ChemistryEquipment.objects.filter(chemistry_product_id__in=chemistry_product_ids)
-    print(matching_equipment_requests)
+    matching_RequestService_requests = RequestService.objects.filter(request_id__in=queryset.values_list('request_id', flat=True))
+    chemistry_product_ids = matching_RequestService_requests.values_list('chemistry_product_id', flat=True)
+
+    matching_equipment_requests = ChemistryEquipment.objects.filter(chemistry_product_id__in=chemistry_product_ids)
 
     requests_serializer = RequestsSerializer(queryset, many=True)
+   
     equipment_serializer = ChemistryEquipmentSerializer(matching_equipment_requests, many=True)
+
+    # Filter requests with status 'удален'
+    filtered_requests = [request for request in requests_serializer.data if request['status'] != 'удален']
+
+    # Create a list to hold serialized data
+    serialized_data = []
+
+    for request_data in filtered_requests:
+        user_id = request_data.get('user')
+        user_instance = Users.objects.filter(user_id=user_id).first()
+
+        if user_instance:
+            username = UsersSerializer(user_instance).data.get('username')
+            moderator_id = request_data.get('moderator')
+            moderator_instance = Users.objects.filter(user_id=moderator_id).first()
+
+            serialized_data.append({
+                'request_id': request_data.get('request_id'),
+                'status': request_data.get('status'),
+                'created_at': request_data.get('created_at'),
+                'formation_date': request_data.get('formation_date'),
+                'completion_date': request_data.get('completion_date'),
+                'username': username,
+                'moderatorname': UsersSerializer(moderator_instance).data.get('username') if moderator_instance else None
+            })
 
     # Combine the serialized data into a single response
     response_data = {
-        'requests': requests_serializer.data,
+        'requests': serialized_data,
         # 'chemistry_equipment': equipment_serializer.data
     }
 
     return Response(response_data)
 
-# Не делать POST заявки?? при создании заявки проверяем, что статус - введен
-@api_view(['POST'])
-def requests_post(request, format=None):
-    serializer = RequestsSerializer(data=request.data)
-    
-    if request.data.get('status') != 'введен': 
-        return Response("при создании статус заявки должен быть - введен")
-    
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 # у каждой зявки есть id и нужно вывести все товары, которые прикреплены к данной заявке
 @api_view(['GET'])
@@ -310,22 +375,38 @@ def requests_getByID(request, pk, format=None):
 
     return Response(response_data)
 
-#модератор меняет даты
 @api_view(['PUT'])
 def requests_put(request, pk, format=None):
+
     try:
         request_instance = Requests.objects.get(request_id=pk)
     except Requests.DoesNotExist:
-        return Response({'error': 'Request not found'}, status=404)
+        return Response({'error': 'неверный requist'}, status=404)
+    request_instance_status = get_object_or_404(Requests, pk=pk)
+    if request_instance.status == 'удален':
+        return Response({'error': 'у заявки статус удален'}, status=404)
 
-    # Определите, какие поля вы хотите обновить
-    fields_to_update = ['formation_date', 'completion_date']
-
-    # Создайте экземпляр сериализатора с partial=True
+    # Define the fields you want to update
+    fields_to_update = ['formation_date', 'completion_date', 'status']
+    
+    # Create an instance of the serializer with partial=True
     serializer = RequestsSerializer(request_instance, data=request.data, partial=True)
 
-    # Отфильтруйте поля, которые вы хотите обновить
+    # Filter the fields you want to update
     filtered_data = {key: request.data[key] for key in fields_to_update if key in request.data}
+
+    # Check if 'status' is in the request data and not set to 'удален'
+    if 'status' in request.data:
+        new_status = request.data['status']
+        old_status = request_instance.status
+        allowed_statuses = {'введен', 'в работе', 'завершен', 'отменен', 'удален'}
+
+        if new_status not in allowed_statuses:
+            return Response({("доступные статусы: 'введен, в работе', 'завершен', 'отменен'")}, status=400)
+        
+        # Check if the new status is 'удален' or if it's the same as the existing status
+        if new_status == 'удален':
+            return Response({'error': 'удалять может только user'}, status=400)
 
     if serializer.is_valid():
         serializer.update(request_instance, filtered_data)  # Use update instead of save
@@ -345,24 +426,13 @@ def user_requests_delete(request, pk, format=None):
             serializer.save()
             return Response(serializer.data)
         else:
-            return Response({"message": "Недостаточно прав для изменения статуса заявки."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"message": "доступные статусы: 'удален' 'введен'."}, status=status.HTTP_403_FORBIDDEN)
         
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['DELETE'])
-def moderator_requests_delete(request, pk, format=None):
-    request_instance = get_object_or_404(Requests, pk=pk)
-    serializer = RequestsSerializer(request_instance, data=request.data)
-    if serializer.is_valid():
-        new_status = serializer.validated_data.get('status')
-        if  request_instance.status == 'введен' and (new_status == 'в работе' or new_status == 'введен' or new_status == 'завершен' or new_status == 'отменен'):
-            serializer.save()
-            return Response(serializer.data)
-        else:
-            return Response({"message": "Недостаточно прав для изменения статуса заявки."}, status=status.HTTP_403_FORBIDDEN)
-        
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
     
 #м-м
 @api_view(['GET'])
@@ -381,7 +451,7 @@ def mm_put(request, request_id, chemistry_product_id):
             chemistry_product_id=chemistry_product_id
         )
     except RequestService.DoesNotExist:
-        return Response({"error": "RequestService entry not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "не удалось найти запись. проверьте id"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'PUT':
         serializer = RequestServiceSerializer(request_service, data=request.data)

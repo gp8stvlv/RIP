@@ -4,7 +4,6 @@ from app.models import RequestService
 from app.models import Users
 from rest_framework import serializers
 
-
 class UsersSerializer(serializers.ModelSerializer):
     class Meta: #меняет свойства основного класса
         # Модель, которую мы сериализуем

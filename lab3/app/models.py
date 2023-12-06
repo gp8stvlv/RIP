@@ -148,10 +148,9 @@ class RequestService(models.Model):
 
 class Requests(models.Model):
     request_id = models.AutoField(primary_key=True)
-    user = models.ForeignKey('Users', models.DO_NOTHING, blank=True, null=True)
-    # user = models.ForeignKey('Users', models.DO_NOTHING)
+    user = models.ForeignKey('Users', models.DO_NOTHING)
     status = models.CharField(max_length=255)
-    created_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField()
     formation_date = models.DateTimeField(blank=True, null=True)
     completion_date = models.DateTimeField(blank=True, null=True)
     moderator = models.ForeignKey('Users', models.DO_NOTHING, related_name='requests_moderator_set', blank=True, null=True)
