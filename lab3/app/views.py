@@ -211,12 +211,20 @@ def chemistryEquipment_put(request, pk, format=None):
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#удаление оборудования
-@api_view(['Delete'])
+# Логическое удаление оборудования
+@api_view(['DELETE'])
 def chemistryEquipment_delete(request, pk, format=None):    
+    # Проверка существования объекта с указанным id
     equipment = get_object_or_404(ChemistryEquipment, pk=pk)
-    equipment.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    # Установите статус 'удален'
+    equipment.status = 'удален'
+    
+    # Сохраните объект
+    equipment.save()
+
+    # Возвращаем успешный ответ
+    return Response({"detail": "Оборудование успешно удалено."}, status=status.HTTP_204_NO_CONTENT)
 
 # добавить услугу в заявку, добавить вторую услугу, список услуг с заявкой-черновиком
 
@@ -291,8 +299,9 @@ def requests_getAll(request, format=None):
    
     equipment_serializer = ChemistryEquipmentSerializer(matching_equipment_requests, many=True)
 
-    # Filter requests with status 'удален'
-    filtered_requests = [request for request in requests_serializer.data if request['status'] != 'удален']
+   # Filter requests with status 'удален' или 'введен'
+    filtered_requests = [request for request in requests_serializer.data if request['status'] not in ['удален', 'введен']]
+
 
     # Create a list to hold serialized data
     serialized_data = []
@@ -375,16 +384,63 @@ def requests_getByID(request, pk, format=None):
 
     return Response(response_data)
 
+# @api_view(['PUT'])
+# def requests_put(request, pk, format=None):
+
+#     try:
+#         request_instance = Requests.objects.get(request_id=pk)
+#     except Requests.DoesNotExist:
+#         return Response({'error': 'неверный requist'}, status=404)
+#     request_instance_status = get_object_or_404(Requests, pk=pk)
+#     if request_instance.status == 'удален':
+#         return Response({'error': 'у заявки статус удален'}, status=404)
+
+#     # Define the fields you want to update
+#     fields_to_update = ['formation_date', 'completion_date', 'status']
+    
+#     # Create an instance of the serializer with partial=True
+#     serializer = RequestsSerializer(request_instance, data=request.data, partial=True)
+
+#     # Filter the fields you want to update
+#     filtered_data = {key: request.data[key] for key in fields_to_update if key in request.data}
+
+#     # Check if 'status' is in the request data and not set to 'удален'
+#     if 'status' in request.data:
+#         new_status = request.data['status']
+#         old_status = request_instance.status
+#         allowed_statuses = {'введен', 'в работе', 'завершен', 'отменен', 'удален'}
+
+#         if new_status not in allowed_statuses:
+#             return Response({("доступные статусы: 'введен', 'в работе', 'завершен', 'отменен'")}, status=400)
+        
+#         # Check if the new status is 'удален' or if it's the same as the existing status
+#         if new_status == 'удален':
+#             return Response({'error': 'удалять может только user'}, status=400)
+
+#     if serializer.is_valid():
+#         serializer.update(request_instance, filtered_data)  # Use update instead of save
+#         return Response(serializer.data)
+#     else:
+#         return Response(serializer.errors, status=400)
+
 @api_view(['PUT'])
-def requests_put(request, pk, format=None):
+def requestsModerator_put(request, pk, format=None):
 
     try:
         request_instance = Requests.objects.get(request_id=pk)
     except Requests.DoesNotExist:
         return Response({'error': 'неверный requist'}, status=404)
     request_instance_status = get_object_or_404(Requests, pk=pk)
+
     if request_instance.status == 'удален':
         return Response({'error': 'у заявки статус удален'}, status=404)
+    elif request_instance.status == 'завершен':
+        return Response({'error': 'заявка завершена'}, status=404)
+    elif request_instance.status == 'отменен':
+        return Response({'error': 'заявка отменена'}, status=404)
+    elif request_instance.status == 'введён':
+        return Response({'error': 'у заявки статус введён'}, status=404)
+        
 
     # Define the fields you want to update
     fields_to_update = ['formation_date', 'completion_date', 'status']
@@ -399,20 +455,66 @@ def requests_put(request, pk, format=None):
     if 'status' in request.data:
         new_status = request.data['status']
         old_status = request_instance.status
-        allowed_statuses = {'введен', 'в работе', 'завершен', 'отменен', 'удален'}
+        allowed_statuses = {'завершен', 'отменен'}
 
         if new_status not in allowed_statuses:
-            return Response({("доступные статусы: 'введен, в работе', 'завершен', 'отменен'")}, status=400)
+            return Response({("доступные статусы: 'завершен', 'отменен'")}, status=400)
         
         # Check if the new status is 'удален' or if it's the same as the existing status
         if new_status == 'удален':
             return Response({'error': 'удалять может только user'}, status=400)
+        
+        if new_status == 'в работе':
+            return Response({'error': 'на статус в работе может переводить только user'}, status=400)
 
     if serializer.is_valid():
         serializer.update(request_instance, filtered_data)  # Use update instead of save
         return Response(serializer.data)
     else:
         return Response(serializer.errors, status=400)
+    
+
+@api_view(['PUT'])
+def requestsUser_put(request, pk, format=None):
+
+    try:
+        request_instance = Requests.objects.get(request_id=pk)
+    except Requests.DoesNotExist:
+        return Response({'error': 'неверный requist'}, status=404)
+    request_instance_status = get_object_or_404(Requests, pk=pk)
+
+    if request_instance.status != 'введен':
+        return Response({"error": f"У заявки должен быть статус 'введен', сейчас статус: {request_instance.status}"}, status=404)
+        
+    # Define the fields you want to update
+    fields_to_update = ['status']
+    
+    # Create an instance of the serializer with partial=True
+    serializer = RequestsSerializer(request_instance, data=request.data, partial=True)
+
+    # Filter the fields you want to update
+    filtered_data = {key: request.data[key] for key in fields_to_update if key in request.data}
+
+    # Check if 'status' is in the request data and not set to 'удален'
+    if 'status' in request.data:
+        new_status = request.data['status']
+        old_status = request_instance.status
+        allowed_statuses = {'в работе'}
+
+        if new_status not in allowed_statuses:
+            return Response({("доступные статусы: 'в работе'")}, status=400)
+
+        if new_status != 'в работе':
+            return Response({'error': 'изменять на другие статусы может только модератор'}, status=400)
+
+    if serializer.is_valid():
+        serializer.update(request_instance, filtered_data)  # Use update instead of save
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=400)
+     
+
+
 
 # логическое удаление. удалить введенную заявку юзер: (был статус введен -> сделать удален) админ: если введен менять на другие статусы
 
@@ -473,7 +575,7 @@ def mm_delete(request, request_id, chemistry_product_id):
     if matching_objects.exists():
         # Удаление найденных объектов
         matching_objects.delete()
-        return Response({'message': 'запись успещно удалена'})
+        return Response({'message': 'запись успешно удалена'})
     else:
         # Возвращение ошибки, если нет совпадающих объектов
         return Response({'error': 'не удалось найти запись. проверьте id'}, status=404)

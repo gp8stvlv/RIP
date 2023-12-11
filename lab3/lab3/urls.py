@@ -34,7 +34,8 @@ urlpatterns = [
     path(r'request/', views.requests_getAll, name='requests_getAll'), # http://0.0.0.0:8000/request/?status=в работе&formation_date_from=2020-09-01&formation_date_to=2024-09-30
     # path(r'request/post/', views.requests_post, name='requests_post'),
     path(r'request/<int:pk>/', views.requests_getByID, name='requests_getByID'),
-    path(r'request/<int:pk>/put/', views.requests_put, name='requests_put'),
+    path(r'request/moderator/<int:pk>/put/', views.requestsModerator_put, name='requestsModerator_put'),
+    path(r'request/user/<int:pk>/put/', views.requestsUser_put, name='requestsUser_put'),
     path(r'request/<int:pk>/delete/', views.user_requests_delete, name='user_requests_delete'),
 
     # path(r'mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/count/<int:production_count>/put/', views.mm_put, name='m-m_put'),
