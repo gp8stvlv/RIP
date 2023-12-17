@@ -18,6 +18,23 @@ from django.contrib import admin
 from app import views
 from django.urls import include, path
 from rest_framework import routers
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+schema_view = get_schema_view(
+   openapi.Info(
+      title="Snippets API",
+      default_version='v1',
+      description="Test description",
+      terms_of_service="https://www.google.com/policies/terms/",
+      contact=openapi.Contact(email="contact@snippets.local"),
+      license=openapi.License(name="BSD License"),
+   ),
+   public=True,
+   permission_classes=(permissions.AllowAny,),
+)
+
 
 router = routers.DefaultRouter()
 
@@ -36,6 +53,7 @@ urlpatterns = [
     path(r'request/<int:pk>/', views.requests_getByID, name='requests_getByID'),
     path(r'request/moderator/<int:pk>/put/', views.requestsModerator_put, name='requestsModerator_put'),
     path(r'request/user/<int:pk>/put/', views.requestsUser_put, name='requestsUser_put'),
+    path(r'request/change/<int:pk>/put/', views.requests_date_put, name='requests_date_put'),
     path(r'request/<int:pk>/delete/', views.user_requests_delete, name='user_requests_delete'),
 
     # path(r'mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/count/<int:production_count>/put/', views.mm_put, name='m-m_put'),
@@ -45,7 +63,11 @@ urlpatterns = [
     
 # данный метод не нужен!
     # path(r'manyToMany/', views.get_all_request_services, name='m-m_put'),
+    path(r'users/registration/', views.registration, name='registration'),
+    path(r'users/login/', views.login_view, name='login'),
+    path(r'users/logout/', views.logout_view, name='logout'),
 
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('admin/', admin.site.urls),
 ]

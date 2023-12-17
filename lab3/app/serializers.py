@@ -31,12 +31,12 @@ class ChemistryEquipmentSerializer(serializers.ModelSerializer):
             # Split the original URL by '/' and take the last part
             filename = image_url.split('/')[-1]
             # Construct the modified URL
-            custom_value = f"http://localhost:9000/chemistry/{filename}"
+            custom_value = f"http://195.19.58.23:9000/chemistry/{filename}"
             print(f"Custom image_url: {custom_value}")
             return custom_value
         else:
             # Provide a default image URL if image_url is None
-            default_image_url = "http://localhost:9000/chemistry/default-image.jpg"
+            default_image_url = "http://195.19.58.23:9000/chemistry/default-image.jpg"
             print(f"Default image_url: {default_image_url}")
             return default_image_url
 

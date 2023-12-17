@@ -12,40 +12,160 @@ from minio import Minio
 from django.utils import timezone
 from django.db import IntegrityError
 
+from drf_yasg.utils import swagger_auto_schema
+from django.http import JsonResponse
+import hashlib
+import secrets
+
+
 MODERATOR_ID = 4  # Идентификатор модератора (замените на фактический идентификатор)
 USER_ID = 1  # Идентификатор модератора (замените на фактический идентификатор)
 
 
 # химическое оборудование 
 # get услуги с фильтром
-client = Minio(endpoint="localhost:9000",   # адрес сервера
+client = Minio(endpoint="192.168.1.70:9000",   # адрес сервера
                access_key='minio',          # логин админа
                secret_key='minio124',       # пароль админа
                secure=False)                # опциональный параметр, отвечающий за вкл/выкл защищенное TLS соединение
+from app.redis_view import (
+    set_key,
+    get_value,
+    delete_value
+)
+
+def check_user(request):
+    response = login_view_get(request._request)
+    if response.status_code == 200:
+        user = Users.objects.get(user_id=response.data.get('user_id').decode())
+        return user.role == 'USR'
+    return False
+
+def check_authorize(request):
+    response = login_view_get(request._request)
+    if response.status_code == 200:
+        user = Users.objects.get(user_id=response.data.get('user_id'))
+        return user
+    return None
+
+def check_moderator(request):
+    response = login_view_get(request._request)
+    if response.status_code == 200:
+        user = Users.objects.get(user_id=response.data.get('user_id'))
+        return user.role == 'MOD'
+    return False
+
+@api_view(['POST'])
+def registration(request, format=None):
+    required_fields = ['username', 'password', 'email', 'role']
+    missing_fields = [field for field in required_fields if field not in request.data]
+
+    if missing_fields:
+        return Response({'Ошибка': f'Не хватает обязательных полей: {", ".join(missing_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if Users.objects.filter(email=request.data['email']).exists() or Users.objects.filter(username=request.data['username']).exists():
+        return Response({'Ошибка': 'Пользователь с таким email или username уже существует'}, status=status.HTTP_400_BAD_REQUEST)
+
+    Users.objects.create(
+        username=request.data['username'],
+        password=request.data['password'],
+        email=request.data['email'],
+        role = request.data['role'],
+    )
+    
+    return Response(status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def login_view(request, format=None):
+
+    existing_session = request.COOKIES.get('session_key')
+    if existing_session and get_value(existing_session):
+        return Response({'user_id': get_value(existing_session)})
+    
+    username_ = request.data.get("username")
+    password = request.data.get("password")
+
+    print(username_)
+    print(password)
+
+    if not username_ or not password:
+        return Response({'error': 'Необходимы логин и пароль'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        print("username_", username_)
+        user = Users.objects.get(username=username_)
+    except Users.DoesNotExist:
+        return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+    if password == user.password:
+        random_part = secrets.token_hex(8)
+        session_hash = hashlib.sha256(f'{user.user_id}:{username_}:{random_part}'.encode()).hexdigest()
+        set_key(session_hash, user.user_id)
+
+        response = JsonResponse({'user_id': user.user_id})
+        response.set_cookie('session_key', session_hash, max_age=86400)
+        return response
+
+    return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['GET'])
+def logout_view(request):
+    session_key = request.COOKIES.get('session_key')
+
+    if session_key:
+        if not get_value(session_key):
+            return JsonResponse({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
+        delete_value(session_key)
+        response = JsonResponse({'message': 'Вы успешно вышли из системы'})
+        response.delete_cookie('session_key')
+        return response
+    else:
+        return JsonResponse({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['GET'])
+def login_view_get(request, format=None):
+    existing_session = request.COOKIES.get('session_key')
+    if existing_session and get_value(existing_session):
+        return Response({'user_id': get_value(existing_session)})
+    return Response(status=status.HTTP_401_UNAUTHORIZED)
+
 
 # гет с фильтром
-@api_view(['Get'])
+@api_view(['GET'])
 def chemistryEquipment_getAll(request, format=None):
-    input_type = request.GET.get('type', '') # price добавить в поиск
+
+    # Check if there is a request with status 'введен' for the current user
+    user_request = Requests.objects.filter(status='введен', user=USER_ID).first()
+    user_request_id = user_request.request_id if user_request else None
+
+    input_type = request.GET.get('type', '')
     input_price = request.GET.get('price', '') 
 
-    matching_models = models.ChemistryEquipment.objects.filter(status='действует').order_by("chemistry_product_id") #аналог (через ОРМ) SELECT * FROM chemistry_equipment WHERE status == 'действует'; 
+    matching_models = models.ChemistryEquipment.objects.filter(status='действует').order_by("chemistry_product_id")
 
     if input_type:
         matching_models = matching_models.filter(
-        Q(type__icontains=input_type), #name__contains для частичного совпадения с введенным текстом.
-        status='действует'
-    )
+            Q(type__icontains=input_type),
+            status='действует'
+        )
         
     if input_price:
         matching_models = matching_models.filter(
-        Q(price__icontains=input_price), #name__contains для частичного совпадения с введенным текстом.
-        status='действует'
+            Q(price__icontains=input_price),
+            status='действует'
         )
+
     matching_model_ids = matching_models.values_list('chemistry_product_id', flat=True)
     print("matching_model_ids", matching_model_ids)
     serializer = ChemistryEquipmentSerializer(matching_models, many=True)
-    return Response(serializer.data)
+
+    return Response({
+        'user_request_id': user_request_id,
+        'equipment': serializer.data,
+    })
+
+
+
 
 # гет по определенному item /4
 @api_view(['Get'])
@@ -425,12 +545,10 @@ def requests_getByID(request, pk, format=None):
 
 @api_view(['PUT'])
 def requestsModerator_put(request, pk, format=None):
-
     try:
         request_instance = Requests.objects.get(request_id=pk)
     except Requests.DoesNotExist:
         return Response({'error': 'неверный requist'}, status=404)
-    request_instance_status = get_object_or_404(Requests, pk=pk)
 
     if request_instance.status == 'удален':
         return Response({'error': 'у заявки статус удален'}, status=404)
@@ -440,11 +558,10 @@ def requestsModerator_put(request, pk, format=None):
         return Response({'error': 'заявка отменена'}, status=404)
     elif request_instance.status == 'введён':
         return Response({'error': 'у заявки статус введён'}, status=404)
-        
 
     # Define the fields you want to update
-    fields_to_update = ['formation_date', 'completion_date', 'status']
-    
+    fields_to_update = ['status']
+
     # Create an instance of the serializer with partial=True
     serializer = RequestsSerializer(request_instance, data=request.data, partial=True)
 
@@ -459,11 +576,11 @@ def requestsModerator_put(request, pk, format=None):
 
         if new_status not in allowed_statuses:
             return Response({("доступные статусы: 'завершен', 'отменен'")}, status=400)
-        
+
         # Check if the new status is 'удален' or if it's the same as the existing status
         if new_status == 'удален':
             return Response({'error': 'удалять может только user'}, status=400)
-        
+
         if new_status == 'в работе':
             return Response({'error': 'на статус в работе может переводить только user'}, status=400)
 
@@ -514,6 +631,38 @@ def requestsUser_put(request, pk, format=None):
         return Response(serializer.errors, status=400)
      
 
+@api_view(['PUT'])
+def requests_date_put(request, pk, format=None):
+    try:
+        request_instance = Requests.objects.get(request_id=pk)
+    except Requests.DoesNotExist:
+        return Response({'error': 'неверный requist'}, status=404)
+
+    if request_instance.status == 'удален':
+        return Response({'error': 'у заявки статус удален'}, status=404)
+    elif request_instance.status == 'завершен':
+        return Response({'error': 'заявка завершена'}, status=404)
+    elif request_instance.status == 'отменен':
+        return Response({'error': 'заявка отменена'}, status=404)
+    elif request_instance.status == 'введён':
+        return Response({'error': 'у заявки статус введён'}, status=404)
+
+    # Define the fields you want to update
+    fields_to_update = ['formation_date', 'completion_date']
+
+    # Create an instance of the serializer with partial=True
+    serializer = RequestsSerializer(request_instance, data=request.data, partial=True)
+
+    # Filter the fields you want to update
+    filtered_data = {key: request.data[key] for key in fields_to_update if key in request.data}
+
+    if serializer.is_valid():
+        serializer.update(request_instance, filtered_data)  # Use update instead of save
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=400)
+
+    
 
 
 # логическое удаление. удалить введенную заявку юзер: (был статус введен -> сделать удален) админ: если введен менять на другие статусы
@@ -521,16 +670,26 @@ def requestsUser_put(request, pk, format=None):
 @api_view(['DELETE'])
 def user_requests_delete(request, pk, format=None):
     request_instance = get_object_or_404(Requests, pk=pk)
-    serializer = RequestsSerializer(request_instance, data=request.data)
-    if serializer.is_valid():
-        new_status = serializer.validated_data.get('status')
-        if  request_instance.status == 'введен' and (new_status == 'удален' or new_status == 'введен'):
-            serializer.save()
-            return Response(serializer.data)
-        else:
-            return Response({"message": "доступные статусы: 'удален' 'введен'."}, status=status.HTTP_403_FORBIDDEN)
+
+    # Check if the current status is 'введен' before updating to 'удален'
+    if request_instance.status == 'введен':
+        request_instance.status = 'удален'
+        request_instance.save()
+        return Response({"message": f"Статус заявки с ID {pk} успешно изменен на 'удален'"}, status=status.HTTP_200_OK)
+    else:
+        return Response({"message": "Доступно изменение статуса только для заявок со статусом 'введен'"}, status=status.HTTP_403_FORBIDDEN)
+
+    
+    # serializer = RequestsSerializer(request_instance, data=request.data)
+    # if serializer.is_valid():
+    #     new_status = serializer.validated_data.get('status')
+    #     if request_instance.status == 'введен' and (new_status == 'удален'):
+    #         serializer.save()
+    #         return Response(serializer.data)
+    #     else:
+    #         return Response({"message": "доступные статусы: 'удален'"}, status=status.HTTP_403_FORBIDDEN)
         
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
