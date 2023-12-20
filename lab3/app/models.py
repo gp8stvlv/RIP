@@ -134,16 +134,17 @@ class DjangoSession(models.Model):
         managed = False
         db_table = 'django_session'
 
+# class RequestService(models.Model):
+#     request = models.OneToOneField('Requests', models.DO_NOTHING, primary_key=True)  # The composite primary key (request_id, chemistry_product_id) found, that is not supported. The first column is selected.
+#     chemistry_product = models.ForeignKey(ChemistryEquipment, models.DO_NOTHING)
+#     production_count = models.IntegerField(blank=True, null=True)
 
-class RequestService(models.Model):
-    request = models.OneToOneField('Requests', models.DO_NOTHING, primary_key=True)  # The composite primary key (request_id, chemistry_product_id) found, that is not supported. The first column is selected.
-    chemistry_product = models.ForeignKey(ChemistryEquipment, models.DO_NOTHING)
-    production_count = models.IntegerField(blank=True, null=True)
+#     class Meta:
+#         managed = False
+#         db_table = 'request_service'
+#         unique_together = (('request', 'chemistry_product'),)
+        
 
-    class Meta:
-        managed = False
-        db_table = 'request_service'
-        unique_together = (('request', 'chemistry_product'),)
 
 
 class Requests(models.Model):
@@ -158,6 +159,17 @@ class Requests(models.Model):
     class Meta:
         managed = False
         db_table = 'requests'
+
+class RequestService(models.Model):
+    id = models.AutoField(primary_key=True)
+    request = models.ForeignKey(Requests, models.DO_NOTHING)
+    chemistry_product = models.ForeignKey(ChemistryEquipment, models.DO_NOTHING)
+    production_count = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'request_service'
+        unique_together = ('request', 'chemistry_product')
 
 
 class Users(models.Model):

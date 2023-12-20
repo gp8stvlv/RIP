@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     # DRF
     'rest_framework',
+    'drf_yasg',
 
     # Наше приложение
     'app',

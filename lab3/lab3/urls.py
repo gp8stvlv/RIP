@@ -53,13 +53,14 @@ urlpatterns = [
     path(r'request/<int:pk>/', views.requests_getByID, name='requests_getByID'),
     path(r'request/moderator/<int:pk>/put/', views.requestsModerator_put, name='requestsModerator_put'),
     path(r'request/user/<int:pk>/put/', views.requestsUser_put, name='requestsUser_put'),
-    path(r'request/change/<int:pk>/put/', views.requests_date_put, name='requests_date_put'),
+    path(r'request/user/delete/<int:pk>/put/', views.requests_user_delete, name='requests_user_delete'),
     path(r'request/<int:pk>/delete/', views.user_requests_delete, name='user_requests_delete'),
 
     # path(r'mm/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/count/<int:production_count>/put/', views.mm_put, name='m-m_put'),
     path(r'manyToMany/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/put/', views.mm_put, name='mm_put'),
     path(r'manyToMany/request_id/<int:request_id>/chemistry_product_id/<int:chemistry_product_id>/delete/', views.mm_delete, name='mm_delete'),
-
+    path(r'upload-photo/', views.upload_photo, name='upload-photo'),
+    
     
 # данный метод не нужен!
     # path(r'manyToMany/', views.get_all_request_services, name='m-m_put'),
