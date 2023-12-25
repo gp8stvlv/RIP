@@ -10,7 +10,6 @@ from django.db.models import Prefetch
 from app.serializers import UsersSerializer, RequestsSerializer, ChemistryEquipmentSerializer, RequestServiceSerializer
 from app.models import Users, Requests, ChemistryEquipment, RequestService
 from minio import Minio
-from django.utils import timezone
 from django.db import IntegrityError
 from rest_framework.parsers import FileUploadParser
 from rest_framework.views import APIView
@@ -27,9 +26,13 @@ from drf_yasg.utils import swagger_auto_schema
 from django.http import JsonResponse
 import hashlib
 import secrets
+from django.contrib.sessions.models import Session
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
 
-MODERATOR_ID = 4  # Идентификатор модератора (замените на фактический идентификатор)
+
+MODERATOR_ID = 5  # Идентификатор модератора (замените на фактический идентификатор)
 USER_ID = 1  # Идентификатор модератора (замените на фактический идентификатор)
 
 
@@ -41,6 +44,21 @@ from app.redis_view import (
     delete_value
 )
 
+@api_view(['GET', 'POST', 'DELETE', 'PUT'])
+def login_view_get(request, format=None):
+    cookies = request.headers.get('Cookie')
+    print('Cookies from request:', cookies)
+
+    existing_session = request.COOKIES.get('session_key')
+    print('Existing session from request:', existing_session)
+    
+    if existing_session and get_value(existing_session):
+        return Response({'user_id': get_value(existing_session)})
+    
+    return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+
+
 def check_user(request):
     response = login_view_get(request._request)
     if response.status_code == 200:
@@ -48,12 +66,28 @@ def check_user(request):
         return user.role == 'USR'
     return False
 
+# def check_authorize(request):
+#     response = login_view_get(request._request)
+#     if response.status_code == 200:
+#         user = Users.objects.get(user_id=response.data.get('user_id'))
+#         return user
+#     return None
+
 def check_authorize(request):
     response = login_view_get(request._request)
-    if response.status_code == 200:
-        user = Users.objects.get(user_id=response.data.get('user_id'))
-        return user
+    print("check_authorize response:", response.status_code, response.data)
+    
+    if response.status_code == 200 and 'user_id' in response.data:
+        user_id = response.data.get('user_id')
+        try:
+            user = Users.objects.get(user_id=user_id)
+            return user
+        except Users.DoesNotExist:
+            pass
+
     return None
+
+
 
 def check_moderator(request):
     response = login_view_get(request._request)
@@ -62,6 +96,31 @@ def check_moderator(request):
         return user.role == 'MOD'
     return False
 
+
+@swagger_auto_schema(
+    method='POST',
+    operation_description="Регистрация нового пользователя",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['username', 'password', 'email', 'role'],
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING, description='Имя пользователя'),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Пароль'),
+            'email': openapi.Schema(type=openapi.TYPE_STRING, description='Адрес электронной почты'),
+            'role': openapi.Schema(type=openapi.TYPE_STRING, description='Роль пользователя'),
+        },
+    ),
+    responses={
+        201: openapi.Response(
+            'Пользователь успешно зарегистрирован',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={'message': openapi.Schema(type=openapi.TYPE_STRING), 'session_key': openapi.Schema(type=openapi.TYPE_STRING)},
+            ),
+        ),
+        400: openapi.Response('Ошибка в запросе', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'error': openapi.Schema(type=openapi.TYPE_STRING)})),
+    },
+)
 @api_view(['POST'])
 def registration(request, format=None):
     required_fields = ['username', 'password', 'email', 'role']
@@ -73,28 +132,50 @@ def registration(request, format=None):
     if Users.objects.filter(email=request.data['email']).exists() or Users.objects.filter(username=request.data['username']).exists():
         return Response({'Ошибка': 'Пользователь с таким email или username уже существует'}, status=status.HTTP_400_BAD_REQUEST)
 
-    Users.objects.create(
+    new_user = Users.objects.create(
         username=request.data['username'],
         password=request.data['password'],
         email=request.data['email'],
-        role = request.data['role'],
+        role=request.data['role'],
     )
+
+    # Генерация session_key и установка в cookies
+    random_part = secrets.token_hex(8)
+    session_hash = hashlib.sha256(f'{new_user.user_id}:{request.data["username"]}:{random_part}'.encode()).hexdigest()
+    set_key(session_hash, new_user.user_id)
+
+    response_data = {'message': 'Пользователь успешно зарегистрирован'}
+    response = JsonResponse(response_data)
+    response.set_cookie('session_key', session_hash, max_age=86400)
     
-    return Response(status=status.HTTP_201_CREATED)
+    return response
 
 
+@swagger_auto_schema(
+    method='POST',
+    operation_description="Авторизация пользователя",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['username', 'password'],
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING, description='Имя пользователя'),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Пароль'),
+        },
+    ),
+    responses={
+        200: openapi.Response('Успешная авторизация', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'user_id': openapi.Schema(type=openapi.TYPE_INTEGER), 'session_key': openapi.Schema(type=openapi.TYPE_STRING)})),
+        400: openapi.Response('Ошибка в запросе', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'error': openapi.Schema(type=openapi.TYPE_STRING)})),
+        401: openapi.Response('Неверные учетные данные', schema=openapi.Schema(type=openapi.TYPE_OBJECT)),
+    },
+)
 @api_view(['POST'])
 def login_view(request, format=None):
-
     existing_session = request.COOKIES.get('session_key')
     if existing_session and get_value(existing_session):
-        return Response({'user_id': get_value(existing_session)})
+        return Response({'user_id': get_value(existing_session), 'session_key': existing_session})
     
     username_ = request.data.get("username")
     password = request.data.get("password")
-
-    print(username_)
-    print(password)
 
     if not username_ or not password:
         return Response({'error': 'Необходимы логин и пароль'}, status=status.HTTP_400_BAD_REQUEST)
@@ -115,27 +196,33 @@ def login_view(request, format=None):
 
     return Response(status=status.HTTP_401_UNAUTHORIZED)
 
+@swagger_auto_schema(
+    method='GET',
+    operation_description="Выход пользователя из системы",
+    responses={
+        200: openapi.Response('Успешный выход из системы', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'message': openapi.Schema(type=openapi.TYPE_STRING)})),
+        401: openapi.Response('Ошибка выхода из системы', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'error': openapi.Schema(type=openapi.TYPE_STRING)})),
+    },
+)
 @api_view(['GET'])
 def logout_view(request):
+    print('logout_view')
     session_key = request.COOKIES.get('session_key')
 
     if session_key:
         if not get_value(session_key):
+            print("Session not valid:", session_key)
             return JsonResponse({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        print("Logging out user with session key:", session_key)
         delete_value(session_key)
         response = JsonResponse({'message': 'Вы успешно вышли из системы'})
         response.delete_cookie('session_key')
         return response
     else:
+        print("No session key found")
         return JsonResponse({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
 
-@api_view(['GET'])
-def login_view_get(request, format=None):
-    existing_session = request.COOKIES.get('session_key')
-    print(existing_session)
-    if existing_session and get_value(existing_session):
-        return Response({'user_id': get_value(existing_session)})
-    return Response(status=status.HTTP_401_UNAUTHORIZED)
 
 
 
@@ -213,8 +300,15 @@ def upload_photo(request, format=None):
 )
 @api_view(['GET'])
 def chemistryEquipment_getAll(request, format=None):
-    user_id = USER_ID  # Replace this with your actual way of getting the user ID
-    print(request.user.id)
+    user = check_authorize(request)
+    
+    if not user:
+        user_id = None
+    else:
+        user_id = user.user_id
+
+    # user_id = USER_ID  # Replace this with your actual way of getting the user ID
+    # print(request.user.id)
 
     # Check if there is a request with status 'введен' for the current user
     user_request = Requests.objects.filter(status='введен', user=user_id).first()
@@ -237,8 +331,8 @@ def chemistryEquipment_getAll(request, format=None):
             status='действует'
         )
 
-    matching_model_ids = matching_models.values_list('chemistry_product_id', flat=True)
-    print("matching_model_ids", matching_model_ids)
+    # matching_model_ids = matching_models.values_list('chemistry_product_id', flat=True)
+    # print("matching_model_ids", matching_model_ids)
     serializer = ChemistryEquipmentSerializer(matching_models, many=True)
 
     return Response({
@@ -287,17 +381,19 @@ def add_chemistryEquipment_post(application, format=None):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@swagger_auto_schema(
-    method='post',
-    responses={
-        201: openapi.Response(description='Успешно создано'),
-        500: 'Внутренняя ошибка сервера',
-    },
-)
 @api_view(['POST'])
 def chemistryEquipment_post(request, chemistry_product_id, format=None):
+    print("COOKIES",request.COOKIES)
+    print("existing_sessio", request.COOKIES.get('session_key'))
+    user = check_authorize(request)
 
-    user_id = USER_ID
+
+    if not user:
+        return Response(status=drf_status.HTTP_403_FORBIDDEN)
+    else:
+        user_id = user.user_id
+
+    # user_id = USER_ID
     # Извлечение объектов Requests со статусом 'введен'
     requests_entered = Requests.objects.filter(status='введен', user=user_id)
     serializer_Requests = RequestsSerializer(requests_entered, many=True)
@@ -410,41 +506,26 @@ def get_role_by_Requests(request_instance):
 #request/?status=в работе&created_at=2020-09-15
 
  # http://0.0.0.0:8000/request/?status=в работе&formation_date_from=2020-09-01&formation_date_to=2024-09-30
-@swagger_auto_schema(
-    method='get',
-    operation_summary='Получить список заявок с учетом фильтров',
-    operation_description='Получить список заявок, отфильтрованных по дате создания, статусу, и дате формирования.',
-    responses={
-        200: openapi.Response(
-            description='Успешный ответ',
-            schema=openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'requests': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
-                    # Add more properties if needed
-                },
-            ),
-        ),
-        400: 'Неверный запрос',
-    },
-    manual_parameters=[
-        openapi.Parameter('created_at', openapi.IN_QUERY, description='Фильтр по дате создания (в формате YYYY-MM-DD)', type=openapi.TYPE_STRING),
-        openapi.Parameter('status', openapi.IN_QUERY, description='Фильтр по статусу заявки', type=openapi.TYPE_STRING),
-        openapi.Parameter('formation_date_from', openapi.IN_QUERY, description='Начальная дата формирования (в формате YYYY-MM-DD)', type=openapi.TYPE_STRING),
-        openapi.Parameter('formation_date_to', openapi.IN_QUERY, description='Конечная дата формирования (в формате YYYY-MM-DD)', type=openapi.TYPE_STRING),
-    ]
-)
-
 
 @api_view(['GET'])
 def requests_getAll(request, format=None):
+    user = check_authorize(request)
     
+    if not user:
+        return Response(status=drf_status.HTTP_403_FORBIDDEN)
+
+    current_user_id = user.user_id
+    is_moderator = user.role == "moderator"
+
+    queryset = Requests.objects.filter(~Q(status__in=['удален', 'введен']))
+
+    if not is_moderator:
+        queryset = queryset.filter(user_id=current_user_id)
+
     created_at = request.GET.get('created_at', None)
     status = request.GET.get('status', None)
     formation_date_from = request.GET.get('formation_date_from', None)
     formation_date_to = request.GET.get('formation_date_to', None)
-
-    queryset = Requests.objects.all()
 
     if created_at:
         queryset = queryset.filter(created_at=created_at)
@@ -461,106 +542,34 @@ def requests_getAll(request, format=None):
     matching_equipment_requests = ChemistryEquipment.objects.filter(chemistry_product_id__in=chemistry_product_ids)
 
     requests_serializer = RequestsSerializer(queryset, many=True)
-   
     equipment_serializer = ChemistryEquipmentSerializer(matching_equipment_requests, many=True)
 
-   # Filter requests with status 'удален' или 'введен'
-    filtered_requests = [request for request in requests_serializer.data if request['status'] not in ['удален', 'введен']]
-
-
-    # Create a list to hold serialized data
     serialized_data = []
 
-    for request_data in filtered_requests:
+    for request_data in requests_serializer.data:
         user_id = request_data.get('user')
         user_instance = Users.objects.filter(user_id=user_id).first()
+        username = UsersSerializer(user_instance).data.get('username') if user_instance else None
 
-        if user_instance:
-            username = UsersSerializer(user_instance).data.get('username')
-            moderator_id = request_data.get('moderator')
-            moderator_instance = Users.objects.filter(user_id=moderator_id).first()
+        moderator_id = request_data.get('moderator')
+        moderator_instance = Users.objects.filter(user_id=moderator_id).first()
+        moderatorname = UsersSerializer(moderator_instance).data.get('username') if moderator_instance else None
 
-            serialized_data.append({
-                'request_id': request_data.get('request_id'),
-                'status': request_data.get('status'),
-                'created_at': request_data.get('created_at'),
-                'formation_date': request_data.get('formation_date'),
-                'completion_date': request_data.get('completion_date'),
-                'username': username,
-                'moderatorname': UsersSerializer(moderator_instance).data.get('username') if moderator_instance else None
-            })
+        serialized_data.append({
+            'request_id': request_data.get('request_id'),
+            'status': request_data.get('status'),
+            'created_at': request_data.get('created_at'),
+            'formation_date': request_data.get('formation_date'),
+            'completion_date': request_data.get('completion_date'),
+            'username': username,
+            'moderatorname': moderatorname
+        })
 
-    # Combine the serialized data into a single response
     response_data = {
         'requests': serialized_data,
-        # 'chemistry_equipment': equipment_serializer.data
     }
 
     return Response(response_data)
-
-# @api_view(['GET'])
-# def requests_getAll(request, format=None):
-#     user = check_authorize(request)
-    
-#     if not user:
-#         return Response(status=drf_status.HTTP_403_FORBIDDEN)
-
-#     current_user_id = user.user_id
-#     is_moderator = user.role == "moderator"
-
-#     queryset = Requests.objects.filter(~Q(status__in=['удален', 'введен']))
-
-#     if not is_moderator:
-#         queryset = queryset.filter(user_id=current_user_id)
-
-#     created_at = request.GET.get('created_at', None)
-#     status = request.GET.get('status', None)
-#     formation_date_from = request.GET.get('formation_date_from', None)
-#     formation_date_to = request.GET.get('formation_date_to', None)
-
-#     if created_at:
-#         queryset = queryset.filter(created_at=created_at)
-
-#     if status:
-#         queryset = queryset.filter(status=status)
-
-#     if formation_date_from and formation_date_to:
-#         queryset = queryset.filter(formation_date__range=[formation_date_from, formation_date_to])
-
-#     matching_RequestService_requests = RequestService.objects.filter(request_id__in=queryset.values_list('request_id', flat=True))
-#     chemistry_product_ids = matching_RequestService_requests.values_list('chemistry_product_id', flat=True)
-
-#     matching_equipment_requests = ChemistryEquipment.objects.filter(chemistry_product_id__in=chemistry_product_ids)
-
-#     requests_serializer = RequestsSerializer(queryset, many=True)
-#     equipment_serializer = ChemistryEquipmentSerializer(matching_equipment_requests, many=True)
-
-#     serialized_data = []
-
-#     for request_data in requests_serializer.data:
-#         user_id = request_data.get('user')
-#         user_instance = Users.objects.filter(user_id=user_id).first()
-#         username = UsersSerializer(user_instance).data.get('username') if user_instance else None
-
-#         moderator_id = request_data.get('moderator')
-#         moderator_instance = Users.objects.filter(user_id=moderator_id).first()
-#         moderatorname = UsersSerializer(moderator_instance).data.get('username') if moderator_instance else None
-
-#         serialized_data.append({
-#             'request_id': request_data.get('request_id'),
-#             'status': request_data.get('status'),
-#             'created_at': request_data.get('created_at'),
-#             'formation_date': request_data.get('formation_date'),
-#             'completion_date': request_data.get('completion_date'),
-#             'username': username,
-#             'moderatorname': moderatorname
-#         })
-
-#     response_data = {
-#         'requests': serialized_data,
-#     }
-
-#     return Response(response_data)
 
 @swagger_auto_schema(
     method='get',
@@ -630,54 +639,55 @@ def requests_getByID(request, pk, format=None):
 
     return Response(response_data)
 
-@swagger_auto_schema(
-    method='put',
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'status': openapi.Schema(type=openapi.TYPE_STRING),
-            # Add more properties if needed
-        },
-    ),
-    responses={
-        200: openapi.Response(
-            description='Успешное обновление заявки',
-            schema=openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'request_id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                    'status': openapi.Schema(type=openapi.TYPE_STRING),
-                    # Add more properties if needed
-                },
-            ),
-        ),
-        400: 'Неверный запрос',
-        404: 'Заявка не найдена',
-    },
-    manual_parameters=[
-        openapi.Parameter('pk', openapi.IN_PATH, description='Идентификатор заявки', type=openapi.TYPE_INTEGER),
-    ]
-)
 @api_view(['PUT'])
 def requestsModerator_put(request, pk, format=None):
     try:
         request_instance = Requests.objects.get(request_id=pk)
     except Requests.DoesNotExist:
-        return Response({'error': 'неверный requist'}, status=404)
+        return Response({'error': 'неверный request'}, status=404)
+
+    user = check_authorize(request)
+    
+    if not user:
+        return Response({'error': 'необходимо авторизоваться'}, status=status.HTTP_403_FORBIDDEN)
+    
+    is_moderator = user.role == "moderator"
+
+    if not is_moderator: 
+        return Response({'error': 'доступен только для модератора'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Assuming you have a 'moderator_id' in the request data or URL parameters
+    # moderator_id = request.data.get('moderator_id')  # Replace with the actual way you get the moderator_id
+    moderator_id = get_object_or_404(Users, user_id=user.user_id)
+    print(moderator_id)  # Now it's safe to print the value
 
     current_status = request_instance.status
 
+
     if current_status == 'удален':
+        print(current_status)
         return Response({'error': 'у заявки статус удален'}, status=404)
     elif current_status == 'завершен':
+        print(current_status)
         return Response({'error': 'заявка завершена'}, status=404)
     elif current_status == 'отменен':
+        print(current_status)
         return Response({'error': 'заявка отменена'}, status=404)
     elif current_status != 'в работе':
+        print(current_status)
         return Response({'error': 'заявка не в статусе "в работе", нельзя перевести в "завершен" или "отменен"'}, status=400)
 
     # Set completion_date to the current date and time
     request_instance.completion_date = timezone.now()
+
+    # Get the Users instance for the moderator ID
+    # print(moderator_id)
+    moderator_instance = get_object_or_404(Users, user_id=moderator_id.user_id)
+
+    # moderator_instance = get_object_or_404(Users, user_id=moderator_id)
+    # print("put")
+    # Assign the moderator instance to the request
+    request_instance.moderator = moderator_instance
 
     # Define the fields you want to update
     fields_to_update = ['status', 'completion_date']
@@ -703,34 +713,6 @@ def requestsModerator_put(request, pk, format=None):
         return Response(serializer.errors, status=400)
 
 
-@swagger_auto_schema(
-    method='put',
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'status': openapi.Schema(type=openapi.TYPE_STRING),
-            # Add more properties if needed
-        },
-    ),
-    responses={
-        200: openapi.Response(
-            description='Успешное обновление заявки',
-            schema=openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'request_id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                    'status': openapi.Schema(type=openapi.TYPE_STRING),
-                    # Add more properties if needed
-                },
-            ),
-        ),
-        400: 'Неверный запрос',
-        404: 'Заявка не найдена',
-    },
-    manual_parameters=[
-        openapi.Parameter('pk', openapi.IN_PATH, description='Идентификатор заявки', type=openapi.TYPE_INTEGER),
-    ]
-)
 @api_view(['PUT'])
 def requestsUser_put(request, pk, format=None):
     try:

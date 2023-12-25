@@ -40,11 +40,13 @@ INSTALLED_APPS = [
 
     # DRF
     'rest_framework',
+    'corsheaders',
     'drf_yasg',
 
     # Наше приложение
     'app',
 ]
+SESSION_ENGINE = "django.contrib.sessions.backends.cache" 
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -54,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'lab3.urls'
@@ -132,3 +135,19 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Add your frontend URL
+    "http://127.0.0.1:3000",  # Add your frontend URL
+    "http://localhost:8000",  # Add your backend URL
+    "http://127.0.0.1:8000",  # Add your backend URL
+]
+
+CORS_ALLOW_HEADERS = [
+    'access-control-allow-origin',
+    'access-control-allow-credentials',
+    'content-type',
+]

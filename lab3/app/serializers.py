@@ -34,7 +34,7 @@ class ChemistryEquipmentSerializer(serializers.ModelSerializer):
     def get_image_url_after_serializer(self, obj):
         image_url = obj.image_url
 
-        print(f"Original image_url: {image_url}")
+        # print(f"Original image_url: {image_url}")
 
         if image_url:
             # Split the original URL by '/' and take the last part
@@ -42,12 +42,12 @@ class ChemistryEquipmentSerializer(serializers.ModelSerializer):
             # Construct the modified URL
             #195.19.58.23:9000
             custom_value = f"http://localhost:9000/chemistry/{filename}"
-            print(f"Custom image_url: {custom_value}")
+            # print(f"Custom image_url: {custom_value}")
             return custom_value
         else:
             # Provide a default image URL if image_url is None
             default_image_url = "http://localhost:9000/chemistry/default-image.jpg"
-            print(f"Default image_url: {default_image_url}")
+            # print(f"Default image_url: {default_image_url}")
             return default_image_url
     
     def create(self, validated_data):
