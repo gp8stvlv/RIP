@@ -77,18 +77,6 @@ class AuthUserUserPermissions(models.Model):
         unique_together = (('user', 'permission'),)
 
 
-class ChemistryEquipment(models.Model):
-    chemistry_product_id = models.AutoField(primary_key=True)
-    type = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)
-    image_url = models.CharField(max_length=255, blank=True, null=True)
-    price = models.CharField(max_length=20, blank=True, null=True)
-    status = models.CharField(max_length=20, blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'chemistry_equipment'
-
 
 class DjangoAdminLog(models.Model):
     action_time = models.DateTimeField()
@@ -145,7 +133,17 @@ class DjangoSession(models.Model):
 #         unique_together = (('request', 'chemistry_product'),)
         
 
+class ChemistryEquipment(models.Model):
+    chemistry_product_id = models.AutoField(primary_key=True)
+    type = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    image_url = models.CharField(max_length=255, blank=True, null=True)
+    price = models.CharField(max_length=20, blank=True, null=True)
+    status = models.CharField(max_length=20, blank=True, null=True)
 
+    class Meta:
+        managed = False
+        db_table = 'chemistry_equipment'
 
 class Requests(models.Model):
     request_id = models.AutoField(primary_key=True)

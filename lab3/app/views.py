@@ -179,6 +179,7 @@ def login_view(request, format=None):
 
     if not username_ or not password:
         return Response({'error': 'Необходимы логин и пароль'}, status=status.HTTP_400_BAD_REQUEST)
+    
     try:
         print("username_", username_)
         user = Users.objects.get(username=username_)
@@ -190,8 +191,11 @@ def login_view(request, format=None):
         session_hash = hashlib.sha256(f'{user.user_id}:{username_}:{random_part}'.encode()).hexdigest()
         set_key(session_hash, user.user_id)
 
-        response = JsonResponse({'user_id': user.user_id})
-        response.set_cookie('session_key', session_hash, max_age=86400)
+        response = JsonResponse({'user_id': user.user_id, 'username': user.username, 'role': user.role})
+        
+        # Set the cookie with the necessary options
+        response.set_cookie('session_key', session_hash, max_age=86400, secure=False, samesite=None)
+        
         return response
 
     return Response(status=status.HTTP_401_UNAUTHORIZED)
@@ -253,6 +257,7 @@ def upload_photo(request, format=None):
 
     # Generate a unique filename for the photo
     filename = f"photo_new_{timezone.now().strftime('%Y%m%d%H%M%S')}.jpg"
+    print("filename photo", filename)
 
     try:
         # Use Minio client to upload the file
@@ -266,7 +271,7 @@ def upload_photo(request, format=None):
 
         # Construct the URL for the uploaded photo
         photo_url = f"http://localhost:9000/chemistry/{filename}"
-
+        print(photo_url)
         return Response({'photo_url': photo_url}, status=status.HTTP_201_CREATED)
 
     except S3Error as e:
@@ -430,8 +435,9 @@ def chemistryEquipment_post(request, chemistry_product_id, format=None):
     except IntegrityError as e:
         # Выводим информацию об ошибке в консоль
         print(f'IntegrityError: {e}')
-        return Response({'error': 'дубликат ключей (с такими id уже заполнена таблица RequestService, количество менять в put)'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        return Response(
+    {'error': 'дубликат ключей (с такими id уже заполнена таблица RequestService, количество менять в put)'},
+    status=status.HTTP_409_CONFLICT)
 
 
 @swagger_auto_schema(
@@ -565,8 +571,10 @@ def requests_getAll(request, format=None):
             'moderatorname': moderatorname
         })
 
+    sorted_data = sorted(serialized_data, key=lambda x: x['request_id'])
+
     response_data = {
-        'requests': serialized_data,
+        'requests': sorted_data,
     }
 
     return Response(response_data)
@@ -633,11 +641,12 @@ def requests_getByID(request, pk, format=None):
             {
                 'equipment': equipment,
                 'production_count': equipment_count_dict[equipment['chemistry_product_id']]
-            } for equipment in equipment_serializer.data
+            } for equipment in sorted(equipment_serializer.data, key=lambda x: x['chemistry_product_id'])
         ] if matching_equipment_requests else None
     }
 
     return Response(response_data)
+
 
 @api_view(['PUT'])
 def requestsModerator_put(request, pk, format=None):
