@@ -23,5 +23,5 @@ from chemistry_prod.views import SendText
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', SendText, name='order_url'),
-    path('order/<int:id>/', GetEquipment, name='order_url'),     #параметр name='order_url' - передаем в orders.html <a href="{% url 'order_url' model.id %}"
+    path('equipment/<int:id>/', GetEquipment, name='equipment-type'),
 ]
