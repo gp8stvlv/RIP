@@ -53,13 +53,13 @@ data_modeling = {
     ]
 }
 
-def GetOrders(request):
+def GetEquipments(request):
     return render(request, 'orders.html', {
         'init_data' : data_modeling
     })
 
 
-def GetOrder(request, id):
+def GetEquipment(request, id):
     data_by_id = data_modeling.get('modeling')[id]
     return render(request, 'order.html', {
         'modeling': data_by_id

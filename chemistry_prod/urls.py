@@ -16,12 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from chemistry_prod.views import GetOrders
-from chemistry_prod.views import GetOrder
+from chemistry_prod.views import GetEquipments
+from chemistry_prod.views import GetEquipment
 from chemistry_prod.views import SendText
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', SendText, name='order_url'),
-    path('order/<int:id>/', GetOrder, name='order_url'),     #параметр name='order_url' - передаем в orders.html <a href="{% url 'order_url' model.id %}"
+    path('order/<int:id>/', GetEquipment, name='order_url'),     #параметр name='order_url' - передаем в orders.html <a href="{% url 'order_url' model.id %}"
 ]
